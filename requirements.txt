@@ -1,0 +1,15 @@
+# --- chạy mọi nơi (B1, Việt, export, eval) ---
+pymupdf>=1.24
+openpyxl>=3.1
+python-Levenshtein>=0.25
+
+# --- tách câu Việt (khuyến nghị, có fallback regex nếu thiếu) ---
+underthesea>=6.7
+
+# --- OCR Hán (Colab Pro GPU) ---
+paddleocr>=2.7
+paddlepaddle>=2.6   # hoặc paddlepaddle-gpu (nếu có GPU)
+
+# --- dóng hàng câu (Colab Pro GPU) ---
+sentence-transformers>=2.7
+torch>=2.0
