@@ -1,0 +1,46 @@
+# VI noise patterns — Minh Mệnh Chính Yếu OCR cleanup
+#
+# Source: out_zips/vol1/vi_sentences.jsonl (Surya re-OCR layer).
+# These are page furniture + OCR math hallucinations that bleed into sentence
+# text. raw_text always keeps the original, so cleaning the `text` field is
+# non-destructive. Each line below: <ID> | <description> | <regex>.
+# Used by pipeline/clean_vi.py (see CLEAN_RULES there — keep in sync).
+#
+# Whitespace after each removal is re-collapsed; rows whose text becomes empty
+# or letterless are DROPPED (logged to vi_clean_report.json).
+
+# --- 1. running page header (book title), heavily OCR-garbled --------------
+# leading 1-3 digit page no. + up to 3 mangled title words + "CH(I/Í)NH Y(É/Ế/E/Ê)U"
+# seen: "48 MINH MENH CHÍNH YÉU", "84 MINH MONH CHINH YOU",
+#       "40 JUN MENH CHÍNH YẾU", "44 ELRIM MENH CHÍNH YÉU",
+#       "54 EINE EINE CHINH YÊU", "10 MINH MỆNH CHÍNH YẾU"
+# NOTE: anchor "CH[IÍ]NH Y[ÉẾEÊÉ]U" uses UPPERCASE codepoints only, so lowercase
+# prose "chính yếu" is NOT matched. No (?i) flag here on purpose.
+HEADER_TITLE | book-title running header (any garble) | (?:\b\d{1,3}\s+)?(?:[A-Za-zÀ-ỹ.]+\s+){1,3}?CH[IÍ]NH[\s-]*Y[ÉẾEÊÉ]U\b
+
+# --- 2. bare leading page number left after header strip --------------------
+LEAD_PAGENUM | stray page number at very start of sentence | ^\s*\d{1,3}\s+(?=[A-Za-zÀ-ỹ«])
+
+# --- 3. front-matter title / publisher block --------------------------------
+# UPPERCASE-only (no (?i)): lowercase prose "quyển thủ" is legitimate, keep it.
+FRONTMATTER | "QUYÊN THỦ" header label (uppercase) | \bQUY[ÊẾE]N\s+TH[ỦU]\b
+PUBLISHER   | publisher boilerplate (uppercase)   | \b(?:T[UỦ]\s*S[AÁ]CH\s+C[OỔ]\s+V[ĂÄA]N|UY\s+BAN\s+DICH\s+THUAT|PH[ỦU]\s+QU[ỐO]C\s+V[ỤU]\s+KHANH)\b
+
+# --- 4. LaTeX / math OCR hallucinations (decorative section dots & marks) ----
+# OCR math model renders ornamental "•" separators and bold caps as TeX.
+LATEX_BRACED | \cmd{...} possibly nested e.g. \boldsymbol{\pi} \mathbf{x} | \\[a-zA-Z]+\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}
+LATEX_PAREN  | \cmd(x) e.g. \bf(z)                                       | \\[a-zA-Z]+\s*\([^()]*\)
+LATEX_BARE   | bare \cmd e.g. \bullet \star \epsilon \cdot               | \\[a-zA-Z]+
+SUBSCRIPT    | leftover x_{...} / h_{\bullet}                             | [A-Za-z]?_\{[^{}]*\}
+LATEX_STAR   | literal escaped asterisk "\*"                              | \\\*
+
+# --- 5. folio / leaf markers ------------------------------------------------
+# [1-a] [22-b] [6 a] (6-b) [1.0] [10.] — leaf-recto/verso refs + split junk.
+FOLIO_BRKT | [NN-a]/[NN-b]/[NN.] bracket folio | \[\s*\d{1,3}\s*[-.\s]?\s*[abAB.]?\s*\]
+FOLIO_PAREN| (NN-a)/(NN-b) paren folio         | \(\s*\d{1,3}\s*[-.\s]?\s*[abAB]\s*\)
+FOLIO_OPEN | dangling "[NN." opener from a bad sentence split | ^\s*\[\s*\d{1,3}\s*\.?\s*$
+
+# --- 6. stray decorative glyphs ---------------------------------------------
+DECOR | lone * or • used as separator (not inside a word) | (?<=\s)[*•](?=\s|$)
+
+# NOTE: « » guillemets are legitimate Vietnamese quotation marks — DO NOT strip.

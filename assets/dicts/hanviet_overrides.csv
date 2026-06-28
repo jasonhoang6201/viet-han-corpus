@@ -1,0 +1,29 @@
+sinonom_char,am_han_viet
+# Manual corrections applied on top of Unihan kVietnamese (which occasionally
+# lists a Nôm reading instead of the Hán-Việt one, or a single wrong reading).
+# Format: <char>,<correct âm Hán-Việt>. Extend this file as you spot errors,
+# or replace the whole dictionary by dropping in the course QuocNgu_SinoNom.dic.
+帝,đế
+者,giả
+而,nhi
+以,dĩ
+為,vi
+何,hà
+虜,lỗ
+年,niên
+所,sở
+子,tử
+二,nhị
+未,vị
+設,thiết
+又,hựu
+辰,thần
+亥,hợi
+# Classical chars missing from Unihan kVietnamese (flagged RED on vol1, OCR
+# confirmed correct from context): 暨 "cùng/và", 姬周 Cơ Chu, 和珅 Hòa Thân,
+# 暲 (name), 亓 = 其.
+暨,kị
+姬,cơ
+珅,thân
+暲,chương
+亓,kỳ

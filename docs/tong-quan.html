@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minh Mệnh Chính Yếu · Pipeline ngữ liệu song song Hán–Việt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..700&family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@400;600;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f3ebda; --paper2:#eae0c9; --ink:#1f1a14; --ink-soft:#4a4136;
+  --cinnabar:#b1382b; --cinnabar-dark:#8a2a20; --seal:#c0392b;
+  --jade:#3f6b54; --gold:#a9802f; --indigo:#2f3b63;
+  --line:#cdbf9f; --line-strong:#a9986f;
+  --shadow:0 18px 50px -28px rgba(31,26,20,.55);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Spectral",Georgia,serif; font-size:18px; line-height:1.72;
+  background-image:
+    radial-gradient(circle at 18% 12%, rgba(177,56,43,.05), transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(47,59,99,.05), transparent 45%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+}
+.han{font-family:"Noto Serif SC",serif}
+.mono{font-family:"JetBrains Mono",monospace}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+
+/* ---------- Hero ---------- */
+header.hero{position:relative;overflow:hidden;border-bottom:2px solid var(--ink);
+  background:linear-gradient(180deg,#f6efe0,#efe5cf);}
+.hero-inner{max-width:1080px;margin:0 auto;padding:84px 28px 64px;position:relative;z-index:2}
+.kicker{font-family:"JetBrains Mono",monospace;font-size:.78rem;letter-spacing:.32em;
+  text-transform:uppercase;color:var(--cinnabar);margin:0 0 22px}
+.hero h1{font-family:"Fraunces",serif;font-weight:800;font-size:clamp(2.6rem,6.4vw,5rem);
+  line-height:1.02;margin:0 0 18px;letter-spacing:-.015em}
+.hero h1 em{font-style:italic;color:var(--cinnabar)}
+.hero .lede{font-size:clamp(1.05rem,2.2vw,1.35rem);max-width:40ch;color:var(--ink-soft);margin:0}
+.seal{position:absolute;top:60px;right:30px;width:128px;height:128px;border:3px solid var(--cinnabar);
+  border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:8px;
+  transform:rotate(6deg);opacity:.92;box-shadow:0 0 0 4px rgba(177,56,43,.12)}
+.seal span{display:grid;place-items:center;font-family:"Noto Serif SC",serif;font-weight:900;
+  font-size:2.1rem;color:var(--cinnabar)}
+@media(max-width:640px){.seal{display:none}}
+.hero-meta{margin-top:38px;display:flex;flex-wrap:wrap;gap:10px}
+.chip{font-family:"JetBrains Mono",monospace;font-size:.72rem;letter-spacing:.06em;
+  border:1.5px solid var(--line-strong);border-radius:999px;padding:6px 14px;background:rgba(255,255,255,.35)}
+.chip b{color:var(--cinnabar)}
+
+/* ---------- Sections ---------- */
+section{padding:64px 0;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:"JetBrains Mono",monospace;font-size:.74rem;letter-spacing:.28em;
+  text-transform:uppercase;color:var(--jade);margin:0 0 10px;display:flex;align-items:center;gap:12px}
+.eyebrow::before{content:"";width:34px;height:2px;background:var(--jade)}
+h2{font-family:"Fraunces",serif;font-weight:700;font-size:clamp(1.8rem,4vw,2.7rem);
+  line-height:1.08;margin:0 0 22px;letter-spacing:-.01em}
+h3{font-family:"Fraunces",serif;font-weight:600;font-size:1.35rem;margin:0 0 8px}
+p{margin:0 0 18px;max-width:68ch}
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+
+/* ---------- Tooltip term ---------- */
+.t{border-bottom:1.5px dotted var(--cinnabar);cursor:help;color:var(--cinnabar-dark);
+  font-weight:500;white-space:nowrap}
+.t:hover,.t:focus{background:rgba(177,56,43,.08);outline:none}
+#tip{position:fixed;z-index:90;max-width:300px;background:var(--ink);color:#f3ebda;
+  font-family:"Spectral",serif;font-size:.92rem;line-height:1.5;padding:13px 15px;border-radius:10px;
+  box-shadow:0 14px 40px -10px rgba(0,0,0,.5);opacity:0;transform:translateY(6px);
+  transition:opacity .16s,transform .16s;pointer-events:none;border:1px solid var(--gold)}
+#tip.show{opacity:1;transform:none}
+#tip b{color:var(--gold);font-weight:600}
+#tip::after{content:"";position:absolute;left:var(--ax,50%);bottom:-7px;width:12px;height:12px;
+  background:var(--ink);border-right:1px solid var(--gold);border-bottom:1px solid var(--gold);
+  transform:translateX(-50%) rotate(45deg)}
+#tip.below::after{bottom:auto;top:-7px;border:none;border-left:1px solid var(--gold);border-top:1px solid var(--gold)}
+
+/* ---------- Cards ---------- */
+.cards{display:grid;gap:18px}
+.card{background:linear-gradient(180deg,#f8f2e4,#f0e7d2);border:1.5px solid var(--line-strong);
+  border-radius:14px;padding:24px 26px;box-shadow:var(--shadow);position:relative}
+.card .num{font-family:"Fraunces",serif;font-weight:900;font-size:1.05rem;color:#fff;
+  background:var(--cinnabar);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;
+  position:absolute;top:-18px;left:24px;box-shadow:0 6px 16px -6px var(--cinnabar)}
+.card.step{padding-top:34px}
+.io{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 4px}
+.io span{font-family:"JetBrains Mono",monospace;font-size:.72rem;padding:4px 10px;border-radius:6px;
+  border:1px solid var(--line-strong)}
+.io .in{background:rgba(63,107,84,.12);color:var(--jade)}
+.io .out{background:rgba(169,128,47,.14);color:var(--gold)}
+.tech{font-size:.92rem;color:var(--ink-soft);border-left:3px solid var(--cinnabar);
+  padding:4px 0 4px 14px;margin-top:14px}
+
+/* ---------- Diagram ---------- */
+.diagram{background:#fbf6ea;border:1.5px solid var(--line-strong);border-radius:16px;
+  padding:18px;box-shadow:var(--shadow);overflow-x:auto}
+.diagram svg{display:block;width:100%;min-width:680px;height:auto}
+svg .box{fill:#f4ebd8;stroke:var(--ink);stroke-width:1.6}
+svg .box.step{fill:#fbe9e4;stroke:var(--cinnabar);stroke-width:2}
+svg .box.res{fill:#eef1e7;stroke:var(--jade);stroke-dasharray:5 4}
+svg .box.final{fill:#f6edcf;stroke:var(--gold);stroke-width:2}
+svg .lbl{font-family:"Fraunces",serif;font-weight:700;font-size:16px;fill:var(--ink)}
+svg .sub{font-family:"JetBrains Mono",monospace;font-size:11px;fill:var(--ink-soft)}
+svg .tag{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.18em;fill:var(--cinnabar);font-weight:600}
+svg .edge{stroke:var(--ink);stroke-width:1.8;fill:none}
+svg .edge.dash{stroke:var(--jade);stroke-dasharray:5 4;stroke-width:1.6}
+
+/* ---------- Book strip ---------- */
+.book{display:flex;gap:3px;align-items:flex-end;height:120px;margin:8px 0 6px;
+  border:1.5px solid var(--line-strong);border-radius:10px;padding:14px;background:#fbf6ea;overflow-x:auto}
+.pg{flex:1 0 5px;border-radius:2px 2px 0 0;min-width:5px}
+.pg.vi{background:var(--jade)}
+.pg.bk{background:var(--line)}
+.pg.han{background:var(--cinnabar)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:.85rem;margin-top:6px}
+.legend i{display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+/* ---------- Two-col ---------- */
+.grid2{display:grid;gap:24px}
+@media(min-width:780px){.grid2{grid-template-columns:1fr 1fr}.cards.two{grid-template-columns:1fr 1fr}}
+
+/* ---------- Table ---------- */
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:6px}
+th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line)}
+th{font-family:"JetBrains Mono",monospace;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--jade)}
+td.mono{font-size:.84rem}
+tr:hover td{background:rgba(177,56,43,.04)}
+
+/* ---------- Code block ---------- */
+pre{background:var(--ink);color:#efe6d2;border-radius:12px;padding:20px 22px;overflow-x:auto;
+  font-family:"JetBrains Mono",monospace;font-size:.84rem;line-height:1.7;box-shadow:var(--shadow)}
+pre .c{color:#9aa777}
+pre .k{color:var(--gold)}
+
+/* ---------- Example transliteration ---------- */
+.translit{background:#fbf6ea;border:1.5px solid var(--line-strong);border-radius:12px;padding:20px 22px;margin:10px 0}
+.translit .row{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:10px}
+.translit .pair{display:inline-flex;flex-direction:column;align-items:center}
+.translit .pair .h{font-family:"Noto Serif SC",serif;font-size:1.7rem;line-height:1}
+.translit .pair .r{font-size:.78rem;color:var(--cinnabar-dark);margin-top:4px}
+.translit .vi{font-style:italic;color:var(--ink-soft)}
+
+footer{padding:50px 0 70px;text-align:center;color:var(--ink-soft);font-size:.9rem}
+footer .han{font-size:1.4rem;color:var(--cinnabar);display:block;margin-bottom:10px}
+a{color:var(--cinnabar-dark)}
+.note{font-size:.86rem;color:var(--ink-soft);font-style:italic}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="seal"><span>明</span><span>命</span><span>政</span><span>要</span></div>
+  <div class="hero-inner">
+    <p class="kicker">Đồ án giữa kỳ · NLP · Track HVB</p>
+    <h1>Xây dựng <em>ngữ liệu song song</em><br>Hán – Việt</h1>
+    <p class="lede">Số hóa bộ <strong>Minh Mệnh Chính Yếu</strong> (明命政要): từ ảnh sách scan → tách phần Việt/Hán → OCR → tách câu → dóng hàng hai ngôn ngữ.</p>
+    <div class="hero-meta">
+      <span class="chip">Nguồn: <b>vol1–6.pdf</b> (sách scan)</span>
+      <span class="chip">Đầu ra: <b>Excel</b> dóng hàng</span>
+      <span class="chip">Chạy trên <b>Colab Pro</b></span>
+    </div>
+  </div>
+</header>
+
+<!-- ===== 0. Bối cảnh ===== -->
+<section>
+ <div class="wrap reveal">
+  <p class="eyebrow">Bối cảnh &amp; mục tiêu</p>
+  <h2>Đề bài muốn gì?</h2>
+  <p>Mục tiêu là tạo một bộ <span class="t" data-tip="Tập hợp văn bản lớn, đã được làm sạch và gắn nhãn, dùng để huấn luyện hoặc nghiên cứu ngôn ngữ. Tiếng Việt gọi là 'ngữ liệu'.">corpus (ngữ liệu)</span> <span class="t" data-tip="Văn bản có 2 ngôn ngữ đặt cạnh nhau theo từng câu tương ứng (vd câu Hán ↔ câu Việt dịch). Đối lập với 'đơn ngữ' chỉ có 1 ngôn ngữ.">song song</span> Hán–Việt thuộc chuyên ngành lịch sử Việt Nam — đây chính là track <strong>HVB</strong> trong đề. Với đầu vào là <em>ảnh</em>, đề yêu cầu 3 việc: <span class="t" data-tip="Optical Character Recognition — Nhận dạng ký tự quang học: máy 'đọc' chữ trong ảnh và chuyển thành văn bản số có thể chỉnh sửa.">OCR</span>, <span class="t" data-tip="Sentence segmentation — Chia một đoạn văn dài thành từng câu riêng biệt. Nghe đơn giản nhưng khó với văn cổ vì thường không có dấu chấm câu.">tách câu</span>, và <span class="t" data-tip="Alignment (dóng hàng): ghép mỗi câu/đoạn ở bản gốc Hán với câu/đoạn dịch tương ứng bên tiếng Việt. Đây là 'trái tim' của ngữ liệu song song.">dóng hàng</span>.</p>
+  <p>Bộ <em>Minh Mệnh Chính Yếu</em> có một đặc điểm rất thuận lợi: <strong>mỗi tập gồm phần dịch Quốc ngữ ở trước, rồi đến nguyên bản chữ Hán ở sau</strong> — và hai phần là <em>cùng một nội dung</em>. Đó chính xác là cặp song song mà ta cần để dóng hàng.</p>
+ </div>
+</section>
+
+<!-- ===== 1. Kiến trúc tổng quan ===== -->
+<section>
+ <div class="wrap reveal">
+  <p class="eyebrow">Kiến trúc tổng quan</p>
+  <h2>Toàn bộ pipeline trong một sơ đồ</h2>
+  <p>Pipeline gồm 4 bước chính (đỏ) + một bước chuẩn bị <span class="t" data-tip="Từ điển tra cứu: ở đây gồm từ điển âm Hán–Việt, từ điển chữ gần giống hình (S1), và từ điển Quốc ngữ → chữ Hán (S2).">từ điển</span>, chạy hoàn toàn offline. Mỗi tập sách được tách làm hai nhánh — Việt và Hán — xử lý riêng, rồi hợp lại ở bước dóng hàng để xuất file Excel.</p>
+  <div class="diagram">
+   <svg viewBox="0 0 1100 880" role="img" aria-label="Sơ đồ pipeline">
+     <defs>
+       <marker id="arr" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto">
+         <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#1f1a14"/></marker>
+       <marker id="arrg" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto">
+         <path d="M0,0 L8,3.2 L0,6.4 Z" fill="#3f6b54"/></marker>
+     </defs>
+
+     <!-- edges -->
+     <path class="edge" marker-end="url(#arr)" d="M435,94 L435,126"/>
+     <path class="edge" marker-end="url(#arr)" d="M360,192 C300,216 280,220 250,236"/>
+     <path class="edge" marker-end="url(#arr)" d="M510,192 C570,216 590,220 620,236"/>
+     <path class="edge" marker-end="url(#arr)" d="M250,302 L250,343"/>
+     <path class="edge" marker-end="url(#arr)" d="M250,409 L250,453"/>
+     <path class="edge" marker-end="url(#arr)" d="M620,302 L620,343"/>
+     <path class="edge" marker-end="url(#arr)" d="M620,409 L620,453"/>
+     <path class="edge" marker-end="url(#arr)" d="M250,519 C250,560 360,572 405,587"/>
+     <path class="edge" marker-end="url(#arr)" d="M620,519 C620,560 510,572 465,587"/>
+     <path class="edge" marker-end="url(#arr)" d="M435,655 L435,687"/>
+     <path class="edge dash" marker-end="url(#arrg)" d="M838,372 C800,376 790,377 742,377"/>
+     <path class="edge dash" marker-end="url(#arrg)" d="M838,412 C660,470 600,560 588,618"/>
+
+     <!-- L0 pdf -->
+     <g><rect class="box" x="285" y="30" width="300" height="64" rx="9"/>
+       <text class="tag" x="435" y="55" text-anchor="middle">INPUT</text>
+       <text class="lbl" x="435" y="78" text-anchor="middle">data/vol1.pdf · sách scan</text></g>
+
+     <!-- L1 step1 -->
+     <g><rect class="box step" x="285" y="128" width="300" height="64" rx="9"/>
+       <text class="tag" x="435" y="153" text-anchor="middle">BƯỚC 1 · split</text>
+       <text class="lbl" x="435" y="176" text-anchor="middle">Tách phần Việt / Hán</text></g>
+
+     <!-- L2 -->
+     <g><rect class="box" x="130" y="238" width="240" height="64" rx="9"/>
+       <text class="lbl" x="250" y="264" text-anchor="middle">pages_vi/</text>
+       <text class="sub" x="250" y="285" text-anchor="middle">ảnh trang tiếng Việt</text></g>
+     <g><rect class="box" x="500" y="238" width="240" height="64" rx="9"/>
+       <text class="lbl" x="620" y="264" text-anchor="middle">pages_han/</text>
+       <text class="sub" x="620" y="285" text-anchor="middle">ảnh trang chữ Hán</text></g>
+
+     <!-- L3 steps -->
+     <g><rect class="box step" x="130" y="345" width="240" height="64" rx="9"/>
+       <text class="tag" x="250" y="369" text-anchor="middle">BƯỚC 2</text>
+       <text class="lbl" x="250" y="392" text-anchor="middle">tiền xử lý · OCR · tách câu</text></g>
+     <g><rect class="box step" x="500" y="345" width="240" height="64" rx="9"/>
+       <text class="tag" x="620" y="369" text-anchor="middle">BƯỚC 3</text>
+       <text class="lbl" x="620" y="392" text-anchor="middle">OCR Hán DỌC · tách câu</text></g>
+
+     <!-- L4 outputs -->
+     <g><rect class="box" x="130" y="455" width="240" height="64" rx="9"/>
+       <text class="lbl" x="250" y="481" text-anchor="middle">vi_sentences</text>
+       <text class="sub" x="250" y="502" text-anchor="middle">câu tiếng Việt</text></g>
+     <g><rect class="box" x="500" y="455" width="240" height="64" rx="9"/>
+       <text class="lbl" x="620" y="481" text-anchor="middle">han_sentences</text>
+       <text class="sub" x="620" y="502" text-anchor="middle">câu Hán + bbox</text></g>
+
+     <!-- L5 step4 -->
+     <g><rect class="box step" x="285" y="591" width="300" height="64" rx="9"/>
+       <text class="tag" x="435" y="615" text-anchor="middle">BƯỚC 4 · align</text>
+       <text class="lbl" x="435" y="638" text-anchor="middle">Dóng hàng + kiểm tra ký tự (S1∩S2)</text></g>
+
+     <!-- L6 excel -->
+     <g><rect class="box final" x="285" y="691" width="300" height="64" rx="9"/>
+       <text class="tag" x="435" y="715" text-anchor="middle">OUTPUT</text>
+       <text class="lbl" x="435" y="738" text-anchor="middle">HVH_001_alignment.xlsx</text></g>
+
+     <!-- resource -->
+     <g><rect class="box res" x="838" y="335" width="232" height="92" rx="9"/>
+       <text class="tag" x="954" y="361" text-anchor="middle" style="fill:#3f6b54">BUILD_DICTS</text>
+       <text class="lbl" x="954" y="383" text-anchor="middle">assets/dicts</text>
+       <text class="sub" x="954" y="403" text-anchor="middle">hanviet · S1 · S2</text>
+       <text class="sub" x="954" y="418" text-anchor="middle">Viet74K</text></g>
+   </svg>
+  </div>
+  <p class="note">Pipeline chạy hoàn toàn offline, không gọi API. Nét đứt xanh = từ điển nạp vào Bước 3 (gán âm Hán–Việt) &amp; Bước 4 (kiểm tra ký tự). Bước 1 chỉ dùng lớp text rác của PDF để <em>đoán</em> trang; nội dung luôn được OCR lại từ ảnh.</p>
+ </div>
+</section>
+
+<!-- ===== 2. Dữ liệu ===== -->
+<section>
+ <div class="wrap reveal">
+  <p class="eyebrow">Hiểu dữ liệu</p>
+  <h2>Cấu trúc một tập sách &amp; cách tìm ranh giới</h2>
+  <p>Mỗi PDF là <strong>ảnh scan</strong> kèm một lớp text OCR nhúng sẵn (do OCRmyPDF + Tesseract <span class="mono">vie</span> tạo). Với <strong>tiếng Việt</strong> lớp này đọc khá tốt (~90%) nên ta <em>dùng thẳng</em> cho nội dung; nhưng với <strong>chữ Hán</strong> (viết dọc) nó bị đọc nhầm thành chữ Latin lung tung — chỉ <em>đủ</em> để phân biệt trang Việt/Hán, còn nội dung Hán phải OCR lại.</p>
+  <div class="book" id="bookstrip" aria-hidden="true"></div>
+  <div class="legend">
+    <span><i style="background:var(--jade)"></i>Trang tiếng Việt</span>
+    <span><i style="background:var(--line)"></i>Trang trống (break)</span>
+    <span><i style="background:var(--cinnabar)"></i>Trang chữ Hán</span>
+  </div>
+  <p style="margin-top:22px">Tín hiệu phân biệt đáng tin nhất là <span class="t" data-tip="Tỉ lệ token (từ) có chứa dấu thanh/dấu phụ tiếng Việt (à, ă, ơ, đ…). Vì lớp text do máy OCR tiếng Việt tạo ra, trang Việt thật sẽ đầy dấu (~0.8), còn trang Hán bị đọc nhầm thành chữ Latin trơ trụi ít dấu (~0.4).">tỉ lệ dấu thanh tiếng Việt</span> trên mỗi trang — KHÔNG dùng việc so khớp với từ điển từ (vì rác chữ Hán hay trùng với âm tiết Việt ngắn → gây nhầm). Quy tắc:</p>
+  <div class="cards two" style="display:grid;gap:16px">
+    <div class="card"><h3>Phân loại trang</h3><p style="margin:0">Trang <strong>VI</strong> nếu tỉ lệ dấu ≥ 0.65; nếu quá ít chữ → <strong>trống</strong>; còn lại → <strong>Hán</strong>.</p></div>
+    <div class="card"><h3>Xác nhận phần Hán</h3><p style="margin:0">Chỉ coi là bắt đầu phần Hán khi có <strong>&gt; 3 trang Hán liên tiếp</strong> (tránh nhầm trang bìa chương). Trang trống ở giữa là <em>break</em>, không tính vào hai phần.</p></div>
+  </div>
+  <p style="margin-top:22px">Đã kiểm chứng thật: ranh giới Việt→Hán ở <strong class="mono">vol1: trang 227</strong>, <strong class="mono">vol2: 149</strong>, <strong class="mono">vol3: 309</strong>. Và đúng yêu cầu — phần Hán luôn <em>bắt đầu bằng một trang Hán</em>, không phải trang trống.</p>
+ </div>
+</section>
+
+<!-- ===== 3. Bốn bước ===== -->
+<section>
+ <div class="wrap reveal">
+  <p class="eyebrow">Chi tiết từng bước</p>
+  <h2>Pipeline xử lý, bước một</h2>
+
+  <div class="cards" style="display:grid;gap:30px;margin-top:30px">
+
+   <div class="card step"><span class="num">1</span>
+     <h3>Tách file PDF — Việt vs Hán</h3>
+     <p>Đọc PDF, phân loại từng trang theo tỉ lệ dấu thanh, tìm ranh giới rồi cắt thành hai phần và <span class="t" data-tip="Render / rasterize: chuyển trang PDF thành ảnh PNG độ phân giải cao (300 DPI) để các bước OCR sau có ảnh sạch để 'đọc'.">render</span> ra ảnh PNG cho các bước OCR.</p>
+     <div class="io"><span class="in">vào data/vol1.pdf</span><span class="out">ra pages_vi/ · pages_han/</span><span class="out">split_manifest.json</span></div>
+     <p class="tech"><strong>Kỹ thuật:</strong> PyMuPDF để đọc/render; phân loại bằng tỉ lệ dấu thanh + quy tắc “&gt;3 trang Hán”.</p>
+   </div>
+
+   <div class="card step"><span class="num">2</span>
+     <h3>Phía tiếng Việt — OCR ảnh (Surya) · sửa chính tả · tách câu</h3>
+     <p>Re-OCR ảnh trang tiếng Việt bằng <span class="t" data-tip="OCR transformer đa ngữ hiện đại, tự dò dòng + nhận dạng. Phục hồi dấu thanh & nét chữ mà lớp text nhúng (Tesseract) làm rớt trên bản in cũ 1970 — sửa ngay tại nguồn.">Surya</span> (lớp text nhúng tuy đọc ~90% nhưng rớt dấu thanh — "MINH MỆNH EHÍNH VẾU" — làm hỏng bước align); sau đó sửa lỗi chính tả <em>thận trọng</em> dựa trên từ điển (chỉ tự sửa khi có đúng một ứng viên hợp lệ, luôn giữ bản gốc); cuối cùng <span class="t" data-tip="Thư viện NLP tiếng Việt phổ biến, dùng để tách câu, tách từ, gán nhãn… cho tiếng Việt.">underthesea</span> tách câu.</p>
+     <div class="io"><span class="in">vào data/vol*.pdf</span><span class="out">ra vi_sentences.jsonl</span></div>
+     <p class="tech"><strong>Kỹ thuật:</strong> <span class="t" data-tip="Surya tự dò dòng + nhận dạng, chạy local (GPU trên Colab). Xung đột Pillow với PaddleOCR nên chạy ở runtime Surya riêng (notebook ①).">Surya OCR</span> · sửa lỗi bằng <span class="t" data-tip="Khoảng cách Levenshtein / Minimum Edit Distance: số phép thêm/xóa/đổi ký tự ít nhất để biến từ này thành từ kia. Dùng để tìm từ đúng gần giống từ bị OCR sai.">khoảng cách sửa</span> ≤ 1 · tách câu underthesea.</p>
+   </div>
+
+   <div class="card step"><span class="num">3</span>
+     <h3>Phía chữ Hán — OCR theo chiều DỌC · sắp thứ tự · tách câu</h3>
+     <p><span class="t" data-tip="Bộ công cụ OCR mạnh cho tiếng Trung. Gồm 2 phần: phát hiện vùng chữ (detection) và nhận dạng ký tự (recognition).">PaddleOCR</span> phát hiện các <span class="t" data-tip="Bounding box: khung chữ nhật bao quanh một cột/vùng chữ OCR tìm được, xác định bằng tọa độ các góc.">bounding box</span> cột chữ, ta sắp lại đúng thứ tự đọc <strong>dọc, phải→trái</strong>. <strong>Điểm mấu chốt:</strong> chữ viết dọc nên phải nhận dạng theo chiều dọc (xoay mỗi cột 90°) — nếu đọc ngang chỉ đúng ~10%, đọc dọc đạt ~70%. Mỗi chữ được gán <span class="t" data-tip="Âm Hán–Việt: cách đọc chữ Hán theo âm tiếng Việt (vd 南='nam', 國='quốc'). Khác với chữ Nôm ghi âm thuần Việt.">âm Hán–Việt</span> từ từ điển.</p>
+     <div class="io"><span class="in">vào pages_han/</span><span class="out">ra han_sentences.jsonl</span><span class="out">han_boxes.jsonl</span></div>
+     <p class="tech"><strong>Tách câu Hán:</strong> văn khắc gỗ thường <em>không có dấu câu</em> → mỗi cột/box là một câu; nếu có dấu (。！？) thì cắt theo dấu. Lỗi còn lại được phát hiện/sửa offline bằng quy tắc <strong>S1∩S2</strong> ở Bước 4.</p>
+   </div>
+
+   <div class="card step"><span class="num">4</span>
+     <h3>Dóng hàng + kiểm tra ký tự + xuất Excel</h3>
+     <p>Ghép câu Hán với câu Việt tương ứng bằng độ tương đồng <span class="t" data-tip="Embedding: biến một câu thành một dãy số (vector) sao cho câu có nghĩa giống nhau thì vector gần nhau — kể cả khác ngôn ngữ.">embedding</span> đa ngữ (<span class="t" data-tip="BAAI/bge-m3 — mô hình embedding đa ngữ (100+ ngôn ngữ) cho cả vector dense lẫn trọng số sparse, đưa câu Hán và câu Việt về cùng không gian để đo độ giống nghĩa. Trên Hán cổ tốt hơn LaBSE.">bge-m3</span>) đo bằng <span class="t" data-tip="Cosine similarity: đo góc giữa hai vector. Bằng 1 = cùng hướng (rất giống nghĩa), gần 0 = không liên quan.">độ tương đồng cosine</span>, kết hợp <span class="t" data-tip="Dynamic Programming (quy hoạch động): kỹ thuật tìm cách ghép tối ưu trên toàn chuỗi, cho phép ghép 1–1, 1–2, 2–1… (m câu Hán ↔ n câu Việt).">quy hoạch động</span> cho phép ghép m–n. Đồng thời kiểm tra từng ký tự bằng quy tắc <strong>S1∩S2</strong>.</p>
+     <div class="io"><span class="in">vào vi_sentences · han_sentences · han_boxes</span><span class="out">ra alignment.jsonl · Excel</span></div>
+     <p class="tech"><strong>Xuất Excel</strong> đúng chuẩn đề: cột <em>ID · Image box · SinoNom char · Âm Hán Việt · Nghĩa thuần Việt</em>, mã ID dạng <span class="mono">DSG_fff.ccc.ppp.ss</span>.</p>
+   </div>
+
+  </div>
+ </div>
+</section>
+
+<!-- ===== 4. S1 ∩ S2 ===== -->
+<section>
+ <div class="wrap reveal">
+  <p class="eyebrow">Đi sâu · kiểm tra ký tự</p>
+  <h2>Quy tắc S1 ∩ S2 — máy tự biết chữ nào OCR sai</h2>
+  <div class="grid2">
+   <div>
+    <p>Với mỗi cặp (chữ Hán <em>sn</em> do OCR ra, âm Quốc ngữ <em>qn</em> tương ứng), ta lấy giao của hai tập:</p>
+    <p style="margin:0 0 6px"><strong style="color:var(--indigo)">S1</strong> = các chữ <em>nhìn giống</em> chữ <em>sn</em> (từ điển hình dáng).<br>
+       <strong style="color:var(--jade)">S2</strong> = các chữ Hán <em>có thể dịch</em> ra âm <em>qn</em>.</p>
+    <p>Kết quả tô màu để người hiệu đính nhìn là biết ngay:</p>
+    <ul>
+      <li><strong>Đen</strong>: <em>sn</em> nằm trong S2 → OCR đúng.</li>
+      <li><strong style="color:var(--jade)">Xanh</strong>: S1∩S2 ra một chữ → tự sửa được.</li>
+      <li><strong style="color:var(--cinnabar)">Đỏ</strong>: giao rỗng → OCR sai, cần xem lại.</li>
+    </ul>
+   </div>
+   <div class="diagram" style="display:grid;place-items:center">
+    <svg viewBox="0 0 360 260" width="100%" style="min-width:0">
+      <circle cx="140" cy="130" r="92" fill="rgba(47,59,99,.16)" stroke="var(--indigo)" stroke-width="2"/>
+      <circle cx="220" cy="130" r="92" fill="rgba(63,107,84,.16)" stroke="var(--jade)" stroke-width="2"/>
+      <text x="95" y="60" class="lbl" fill="var(--indigo)" text-anchor="middle">S1</text>
+      <text x="265" y="60" class="lbl" fill="var(--jade)" text-anchor="middle">S2</text>
+      <text x="92" y="135" class="sub" text-anchor="middle">giống</text>
+      <text x="92" y="150" class="sub" text-anchor="middle">hình</text>
+      <text x="268" y="135" class="sub" text-anchor="middle">dịch</text>
+      <text x="268" y="150" class="sub" text-anchor="middle">âm</text>
+      <text x="180" y="128" class="han" font-size="30" text-anchor="middle" fill="var(--cinnabar)">交</text>
+      <text x="180" y="158" class="sub" text-anchor="middle" fill="var(--cinnabar)">S1∩S2</text>
+    </svg>
+   </div>
+  </div>
+  <p class="note">Cài đặt theo đúng tài liệu hướng dẫn của môn (giải thuật M.E.D Levenshtein + giao hai tập từ điển).</p>
+ </div>
+</section>
+
+<!-- ===== 5. Từ điển ===== -->
+<section>
+ <div class="wrap reveal">
+  <p class="eyebrow">Nguồn từ điển</p>
+  <h2>Lấy từ đâu? (toàn nguồn công khai, uy tín)</h2>
+  <p>Vì chưa có file <span class="mono">.dic</span> của giảng viên, các từ điển được dựng lại từ nguồn mở và sẽ tự nâng cấp khi thả file thật vào.</p>
+  <table>
+    <thead><tr><th>Tài nguyên</th><th>Nguồn</th><th>Dùng cho</th></tr></thead>
+    <tbody>
+      <tr><td>Âm Hán–Việt (8.3k chữ)</td><td>Unicode <span class="t" data-tip="Cơ sở dữ liệu chữ Hán của Unicode, chứa nhiều thông tin cho mỗi ký tự CJK — trong đó trường 'kVietnamese' cho cách đọc Hán–Việt.">Unihan</span> · trường kVietnamese</td><td>S2 + phiên âm</td></tr>
+      <tr><td>Chữ gần giống hình (S1)</td><td>Unihan · các trường biến thể</td><td>kiểm tra ký tự</td></tr>
+      <tr><td>Mẫu định dạng .dic</td><td class="mono">khang3004/SinoNomViet_…</td><td>S1/S2 hạt giống</td></tr>
+      <tr><td>Từ điển từ tiếng Việt</td><td class="mono">duyet/vietnamese-wordlist</td><td>tách trang · sửa lỗi</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:20px">Unihan đôi khi thiếu/sai → có file <span class="mono">hanviet_overrides.csv</span> để sửa tay (đã thêm sẵn các chữ cổ hay gặp: 何→hà, 虜→lỗ, 帝→đế…).</p>
+ </div>
+</section>
+
+<!-- ===== 6. Kết quả ===== -->
+<section>
+ <div class="wrap reveal">
+  <p class="eyebrow">Kết quả đã kiểm chứng</p>
+  <h2>Phiên âm khớp đúng ví dụ trong đề</h2>
+  <div class="translit">
+    <div class="row">
+      <span class="pair"><span class="h han">南</span><span class="r">nam</span></span>
+      <span class="pair"><span class="h han">國</span><span class="r">quốc</span></span>
+      <span class="pair"><span class="h han">山</span><span class="r">sơn</span></span>
+      <span class="pair"><span class="h han">河</span><span class="r">hà</span></span>
+      <span class="pair"><span class="h han">南</span><span class="r">nam</span></span>
+      <span class="pair"><span class="h han">帝</span><span class="r">đế</span></span>
+      <span class="pair"><span class="h han">居</span><span class="r">cư</span></span>
+    </div>
+    <div class="vi">→ “Sông núi nước Nam vua Nam ở” (nghĩa thuần Việt)</div>
+  </div>
+  <p style="margin-top:18px">File Excel xuất ra có 3 sheet: <strong>boxes</strong> (đúng layout đề), <strong>sentence_alignment</strong> (cặp câu m–n + độ tương đồng), <strong>char_validation</strong> (màu S1∩S2 cho từng chữ).</p>
+ </div>
+</section>
+
+<!-- ===== 7. Chạy ===== -->
+<section style="border-bottom:none">
+ <div class="wrap reveal">
+  <p class="eyebrow">Cách chạy</p>
+  <h2>Năm lệnh trên Colab Pro</h2>
+  <p>Các bước nặng (PaddleOCR, bge-m3) cần mô hình lớn nên chạy trên Colab. Mở notebook, mount Drive (đặt sẵn <span class="mono">data/vol*.pdf</span>), rồi:</p>
+  <pre><span class="c"># một lần: dựng từ điển (tải Unihan ~8MB)</span>
+python -m pipeline.build_dicts
+
+<span class="c"># 1 · tách Việt/Hán + render ảnh</span>
+python -m pipeline.step1_split_pdf  <span class="k">--vol</span> vol1
+<span class="c"># 2 · OCR ảnh Việt bằng Surya + sửa lỗi + tách câu</span>
+python -m pipeline.step2_vietnamese <span class="k">--vol</span> vol1
+<span class="c"># 3 · OCR chữ Hán theo chiều dọc + tách câu</span>
+python -m pipeline.step3_sinonom    <span class="k">--vol</span> vol1
+<span class="c"># 4 · dóng hàng + kiểm tra ký tự (S1∩S2) + Excel</span>
+python -m pipeline.step4_align      <span class="k">--vol</span> vol1</pre>
+  <p style="margin-top:18px">Kết quả nằm ở <span class="mono">out/vol1/HVH_001_alignment.xlsx</span>. Toàn bộ chạy offline, không cần API key.</p>
+ </div>
+</section>
+
+<footer>
+  <span class="han">明命政要</span>
+  Pipeline ngữ liệu song song Hán–Việt · Minh Mệnh Chính Yếu<br>
+  <span class="note">Di chuột (hover) vào các từ <span class="t" data-tip="Đúng rồi! Đây là một tooltip — hộp giải thích nhỏ hiện ra khi bạn rê chuột vào thuật ngữ.">gạch chân chấm đỏ</span> để xem giải thích.</span>
+</footer>
+
+<div id="tip" role="tooltip"></div>
+
+<script>
+// ---- Tooltip / popover ----
+(function(){
+  const tip=document.getElementById('tip');
+  let cur=null;
+  function show(el){
+    cur=el; tip.textContent=el.getAttribute('data-tip'); tip.classList.add('show');
+    const r=el.getBoundingClientRect(); const tr=tip.getBoundingClientRect();
+    let left=r.left+r.width/2-tr.width/2;
+    left=Math.max(12,Math.min(left,innerWidth-tr.width-12));
+    let top=r.top-tr.height-12; let below=false;
+    if(top<8){top=r.bottom+12;below=true;}
+    tip.style.left=left+'px'; tip.style.top=top+'px';
+    tip.classList.toggle('below',below);
+    tip.style.setProperty('--ax',(r.left+r.width/2-left)+'px');
+  }
+  function hide(){tip.classList.remove('show');cur=null;}
+  document.querySelectorAll('.t').forEach(el=>{
+    el.tabIndex=0;
+    el.addEventListener('mouseenter',()=>show(el));
+    el.addEventListener('mouseleave',hide);
+    el.addEventListener('focus',()=>show(el));
+    el.addEventListener('blur',hide);
+    el.addEventListener('click',e=>{e.stopPropagation();cur===el?hide():show(el);});
+  });
+  document.addEventListener('click',hide);
+  addEventListener('scroll',()=>{if(cur)show(cur);},{passive:true});
+})();
+
+// ---- Reveal on scroll ----
+const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+// ---- Book strip (illustrative: vol1, boundary ~p227 of ~638) ----
+(function(){
+  const strip=document.getElementById('bookstrip'); if(!strip)return;
+  const total=88, boundary=Math.round(88*227/638);
+  let html='';
+  for(let i=0;i<total;i++){
+    let cls='vi', h=55+Math.random()*40;
+    if(i>=boundary-2 && i<=boundary){cls='bk';h=30;}
+    else if(i>boundary){cls='han';h=55+Math.random()*40;}
+    // a few blank breaks in the Han part
+    if(cls==='han' && Math.random()<0.05){cls='bk';h=28;}
+    if(cls==='vi' && Math.random()<0.03){cls='bk';h=28;}
+    html+=`<div class="pg ${cls}" style="height:${h}%"></div>`;
+  }
+  strip.innerHTML=html;
+})();
+</script>
+</body>
+</html>

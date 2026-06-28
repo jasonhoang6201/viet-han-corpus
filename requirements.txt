@@ -1,15 +1,33 @@
-# --- chạy mọi nơi (B1, Việt, export, eval) ---
-pymupdf>=1.24
-openpyxl>=3.1
-python-Levenshtein>=0.25
+# Core
+PyMuPDF>=1.24          # step 1: PDF load / classify / render
+opencv-python-headless>=4.9   # image preprocessing (deskew/binarize/denoise)
+numpy>=1.26            # paddlepaddle-gpu 3.3.1 is built against numpy 2.x; no upper pin
+pandas>=2.2            # Colab's prebuilt wheel is fine now (numpy 2.x stack)
+openpyxl>=3.1          # step 4: .xlsx writer
 
-# --- tách câu Việt (khuyến nghị, có fallback regex nếu thiếu) ---
-underthesea>=6.7
+# Step 2 — Vietnamese (re-OCR the page images with Surya)
+underthesea>=6.7       # Vietnamese sentence segmentation
+# VI OCR uses Surya (own detection + recognition). Surya conflicts with PaddleOCR
+# over Pillow, so it is NOT installed here — run the VI side in a clean Surya
+# runtime (notebook ①): pip install "surya-ocr>=0.13,<0.16".
 
-# --- OCR Hán (Colab Pro GPU) ---
-paddleocr>=2.7
-paddlepaddle>=2.6   # hoặc paddlepaddle-gpu (nếu có GPU)
+# Step 3 — SinoNom OCR (PaddleOCR is the single OCR engine)
+# Requires 3.x: step3 uses the predict() API + OCRResult format and rotates the
+# whole page (no per-column detect/recognise split).
+# GPU build on purpose: paddlepaddle-gpu 3.3.1 (cu129 wheels) no longer downgrades
+# nvidia-nccl/cudnn, so it coexists with Colab's torch (step 4) — GPU OCR on both
+# the Hán (step 3) and VI-detection (step 2) sides. Install from Paddle's index,
+# NOT PyPI, then paddleocr from PyPI:
+#   pip install paddlepaddle-gpu==3.3.1 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/
+#   pip install -U "paddleocr[doc-parser]>=3.4.0"
+#   pip install -U nvidia-nccl-cu12   # MUST be last — see below
+# paddle-gpu downgrades nvidia-nccl-cu12 below what Colab's torch (step 4 bge-m3)
+# needs -> `import torch` dies with "undefined symbol:
+# ncclDevCommCreate". Re-upgrading nccl last fixes torch; paddle never calls nccl
+# for single-GPU OCR, so both work. (No CPU build needed.)
+paddlepaddle-gpu==3.3.1   # from https://www.paddlepaddle.org.cn/packages/stable/cu129/
+paddleocr[doc-parser]>=3.4.0
 
-# --- dóng hàng câu (Colab Pro GPU) ---
-sentence-transformers>=2.7
+# Step 4 — alignment
+FlagEmbedding>=1.2   # bge-m3 dense+sparse cross-lingual alignment
 torch>=2.0

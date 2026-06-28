@@ -1,66 +1,113 @@
-# Đề tài 39 — Ngữ liệu song song Hán–Việt (Minh Mệnh Chính Yếu)
+# Minh Mệnh Chính Yếu — HVB parallel Hán–Việt corpus pipeline
 
-Pipeline xây ngữ liệu song song Hán–Việt từ 6 PDF *Minh Mệnh Chính Yếu*.
-Yêu cầu B.1 (HVB): OCR Hán → dóng hàng dịch âm (ký tự) & dịch nghĩa (câu) →
-xuất **XML** (thẻ `<C>`/`<V>`, Sentence_ID 14 ký tự) + **Excel** (mức ký tự).
+End-to-end pipeline for building a **parallel Sino-Vietnamese (Hán–Việt) corpus**
+(track **HVB**: image input → OCR → sentence segmentation → alignment) from the
+scanned *Minh Mệnh Chính Yếu* (明命政要) volumes.
 
-## Cấu trúc dữ liệu (đã khảo sát thực tế)
-Mỗi PDF = **phần dịch Quốc ngữ (đầu sách)** + **một block Hán gốc (cuối sách,
-chỉ là ảnh, lớp text là rác Tesseract)**. Điểm cắt mỗi tập:
+Each volume is a scanned book whose layout is **Vietnamese (Quốc ngữ) translation
+first, then the Hán (classical Chinese) original**. The two halves are the same
+content, which is exactly what we align.
 
-| Tập | Trang | Việt (đầu) | Hán (cuối) |
-|----|----|----|----|
-| 1 | 638 | 0–223 | 224–637 |
-| 2 | 416 | 0–145 | 146–415 |
-| 3 | 738 | 0–309 | 310–737 |
-| 4 | 516 | 0–213 | 214–515 |
-| 5 | 566 | 0–217 | 218–565 |
-| 6 | 736 | 0–397 | 398–735 |
-
-Phân loại trang dùng `syllables.txt`: đếm số âm tiết tiếng Việt hợp lệ dài ≥3
-ký tự (trang dịch hàng trăm, trang Hán <10) — bền hơn đếm từ thô vì rác
-Tesseract trên trang Hán giả dạng âm tiết ngắn.
-
-## Pipeline (2 nhánh)
 ```
-B1 split  ─┬─ Việt: clean → tách câu ─────────────┐
-           └─ Hán: render ảnh → OCR(+bbox) →       ├─ B4 align câu (anchor+LaBSE, m-n)
-              sắp cột RTL → dịch âm → kiểm OCR ─────┘   → B5 ID + XML/Excel → B6 eval
+data/vol1.pdf ─► [1] split ─► VI pages ─► [2] re-OCR (Surya)+spell+segment ─► vi_sentences
+                          └─► HÁN pages ─► [3] preprocess+OCR(vertical)+segment ─► han_* ─┐
+                                                                                           │
+                                    [4] bge-m3 align + S1∩S2 char check ◄─────────────────┘ ─► Excel
 ```
 
-Module trong `src/`: `split_pages` `clean_viet` `segment` `ocr_han`
-`sort_bbox` `dicts` `verify_ocr` `align` `export` `evaluate`.
+Fully offline — no API calls. The PDFs carry an embedded OCR layer (OCRmyPDF +
+Tesseract `vie`) that is good enough to **classify** a page (Việt vs Hán) but
+mangles the actual content — even on Quốc ngữ it drops tone marks / diacritics
+("MINH MỆNH EHÍNH VẾU"), which wrecks the step-4 alignment. So step 2 **re-OCRs
+the Vietnamese page images with Surya** (modern multilingual OCR that runs its
+own line detection + recognition), recovering the diacritics at the source.
+Classical Hán is written in **vertical columns right-to-left** and the embedded
+layer renders it as Latin garbage — so for the Hán half that layer is used only
+as a page-split signal, and step 3 re-OCRs from the images: detect boxes, then
+recognise each column the vertical way (~70%). Residual character errors are
+flagged/corrected offline by the **S1∩S2** rule in step 4.
 
-## Chạy
+Before OCRing a VI page, step 2 crops off the **top running-head band** (the
+`QUYỂN n   <page-no>` line, or a lone page number) so Surya doesn't read it as a
+sentence and inject noise into `vi_sentences` / the alignment. The crop is
+conservative — it fires only on a single thin line high in the top margin that is
+set off from the body by a wide gap, so content titles and chapter-opening pages
+are never cut (`VIETNAMESE["crop_header"]`, on by default).
+
+Step 1 also **trims the Vietnamese front matter** — the cover, half-title,
+colophon and translator-credit pages that are Quốc ngữ (so they classify as VI)
+but have no Hán counterpart and would force-match the Hán side. The translation
+body cites the Hán original's leaf in brackets (`[1a]`, `[1b]`, a bare `[1]`, or
+the spelled `[tờ 3b]`); front matter never does, so `vi_body_start` is the first
+VI page bearing such a leaf marker that also reads as real body. Pages before it
+are dropped and recorded in `split_manifest.json` (`vi_body_start`,
+`vi_front_matter`). Validated on vol1–6 (`SPLIT["trim_front_matter"]`, on by
+default).
+
+## Layout
+
+```
+pipeline/
+  config.py            all paths + thresholds (edit ID schema / DSG code here)
+  common.py            logging, JSONL IO, ID schema, text helpers
+  preprocess.py        image cleanup (deskew/denoise/binarize) before OCR
+  build_dicts.py       build hanviet.csv + S1/S2 dicts from Unihan + samples
+  step1_split_pdf.py   classify pages (VI/HÁN/plate/blank), split, trim VI front matter, render
+  step2_vietnamese.py  re-OCR VI images (Surya) → spell-fix → underthesea
+  vi_ocr.py            VI image OCR; crops the top running-head/page-number band
+  step3_sinonom.py     preprocess → PaddleOCR detect + vertical recognise → segment
+  step4_align.py       S1∩S2 char validation + review/OOV lanes + Excel
+                       (sentence alignment runs in notebook ②, bge-m3)
+assets/
+  dicts/   Viet74K.txt, hanviet.csv, QuocNgu_SinoNom.dic (S2), SinoNom_Similar.dic (S1)
+  raw/     Unihan_Readings.txt, Unihan_Variants.txt
+out/<vol>/  all generated artifacts
+```
+
+## Data sources (all public)
+
+| Resource | Source | Used for |
+|---|---|---|
+| âm Hán-Việt readings | Unicode **Unihan** `kVietnamese` (8.3k chars) | S2 + transliteration |
+| visual-similar fallback | Unihan variant fields | S1 |
+| `.dic` sample format | `khang3004/SinoNomViet_Transliteration_OCR` | S1/S2 seed + format |
+| Vietnamese wordlist | `duyet/vietnamese-wordlist` (Viet74K) | page split + spell-fix |
+
+> The full course `SinoNom_Similar.dic` / `QuocNgu_SinoNom.dic` are not public.
+> We rebuild equivalents from Unihan and merge the public samples. **Drop the
+> real course files into `assets/dicts/` (same format) to upgrade quality** —
+> the code will use them automatically.
+>
+> Unihan `kVietnamese` covers ~8.3k chars and occasionally lists a Nôm reading
+> instead of the Hán-Việt one. Fix individual chars in
+> `assets/dicts/hanviet_overrides.csv` (`<char>,<âm Hán-Việt>`); `build_dicts`
+> applies them as the primary reading. Seeded with common classical chars
+> (何→hà, 虜→lỗ, 帝→đế, …).
+
+## Run order
+
 ```bash
-python -m run_pipeline split  --vol 1     # tách trang  (máy thường)
-python -m run_pipeline viet   --vol 1     # clean + tách câu Việt (máy thường)
-python -m run_pipeline han    --vol 1     # OCR Hán + bbox + dịch âm  (CẦN GPU)
-python -m run_pipeline align  --vol 1     # dóng hàng câu LaBSE       (CẦN GPU)
-python -m run_pipeline export --vol 1     # XML + Excel (máy thường)
-python -m run_pipeline all    --vol 1 --limit 5   # full, giới hạn 5 trang Hán để thử
-```
-Kết quả vào `out/vol<N>/`. Backend OCR đổi bằng `OCR_BACKEND=mock|paddle`.
-
-## Trên Colab Pro (GPU, không dùng API)
-```python
-!pip install -q pymupdf openpyxl python-Levenshtein underthesea \
-    paddleocr paddlepaddle-gpu sentence-transformers
-!python -m run_pipeline all --vol 1
+python -m pipeline.build_dicts                 # one-time: build dictionaries
+python -m pipeline.step1_split_pdf  --vol vol1 # split + render page images
+python -m pipeline.step2_vietnamese --vol vol1 # Vietnamese OCR (Surya) + segment
+python -m pipeline.step3_sinonom    --vol vol1 # Hán OCR (vertical) + segment
+python -m pipeline.step4_align      --vol vol1 # align + S1∩S2 + Excel
 ```
 
-## Phụ thuộc từ điển (`dicts/`)
-- `phienam.txt` — **đã có** (11.411 char→âm Hán Việt). Dùng cho cột *Âm Hán Việt*
-  và suy ra QuocNgu_SinoNom (S2) bằng cách đảo map.
-- `QuocNgu_SinoNom.dic`, `SinoNom_Similar.dic` — **xin từ thầy** rồi bỏ vào
-  `dicts/`. Có thì `verify_ocr` chạy đủ (đen/xanh/đỏ); thiếu `SinoNom_Similar.dic`
-  thì chạy rút gọn (chỉ đen/đỏ theo S2).
+Output workbook: `out/vol1/HVH_001_alignment.xlsx` with sheets
+`boxes` (spec layout: ID · Image box · SinoNom char · Âm Hán Việt · Nghĩa thuần Việt),
+`sentence_alignment` (m-n pairs + similarity), `char_validation` (S1∩S2 colours).
 
-## Hạn chế đã biết (cần xử lý để tăng F1)
-1. **Lớp OCR tiếng Việt rất bẩn** (`Minhmệnh`, `Triệu.tri`). Nên OCR lại trang
-   Việt bằng engine khác (VietOCR/PaddleOCR-vi) — thay `clean_viet.extract_viet`
-   bằng bộ OCR. Hiện làm sạch bảo thủ + fallback regex tách câu.
-2. **Recognition Hán trên bản khắc gỗ** của PaddleOCR có thể yếu → kiểm bằng
-   thuật toán SinoNom (`verify_ocr`) và cần `SinoNom_Similar.dic` để sửa.
-3. Chưa có **golden** để đo P/R/F1 (`evaluate.prf1` sẵn sàng khi có nhãn).
-4. `phienam.txt` có chữ giản thể & 1 âm/chữ; chữ đa âm Hán Việt chỉ lấy âm chính.
+## ID schema
+
+`DSG_fff.ccc.ppp.ss` — set `ID_SCHEMA` in `config.py`. Default `HVH_001`
+(**H**istory · **V**ietnam · **H**án-genre · file `001`). Replace `fff` with the
+`DSG_fff` code the instructor assigns; `ccc/ppp/ss` are auto-numbered
+(chapter/page/sentence-or-box).
+
+## Colab
+
+Current flow is split across two notebooks: `Minh_Menh_1_VI_OCR_Surya_Colab.ipynb`
+(VI side, Surya) hands off a zip to `Minh_Menh_2_Han_Align_Colab.ipynb` (Hán
+PaddleOCR + bge-m3 alignment). Run on a Colab Pro runtime (GPU recommended for
+step 3/4). `Minh_Menh_Pipeline_Colab.ipynb` is the older all-in-one (deprecated).

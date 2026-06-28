@@ -1,0 +1,123 @@
+================================================================================
+NGUỒN DỮ LIỆU & CÔNG CỤ SỬ DỤNG
+Minh Mệnh Chính Yếu (明命政要) — pipeline corpus song ngữ Hán–Việt (track HVB)
+================================================================================
+Cập nhật: 2026-06-22
+Toàn pipeline chạy OFFLINE, không gọi API. Mọi nguồn đều public/citable.
+
+
+--------------------------------------------------------------------------------
+1. DỮ LIỆU GỐC (INPUT)
+--------------------------------------------------------------------------------
+- data/vol1.pdf ... vol6.pdf
+  Bản scan 6 tập "Minh Mệnh Chính Yếu". Mỗi tập: front matter (bìa, half-title,
+  trang bản quyền, trang ghi dịch giả) + phần dịch Quốc ngữ trước, phần Hán
+  (chữ Hán cổ, cột dọc phải→trái) sau. Hai nửa cùng nội dung → đem align.
+  Bước 1 CẮT front matter VI (chữ Quốc ngữ nhưng không có bản Hán đối ứng) bằng
+  dấu tờ Hán mà bản dịch trích trong ngoặc ([1a], [1b], [1] trần, hoặc "[tờ 3b]"):
+  vi_body_start = trang VI đầu mang dấu tờ + đọc như thân bài. Front matter không
+  có dấu tờ → bị loại (SPLIT["trim_front_matter"], validated vol1-6).
+  PDF đã có sẵn lớp text OCR nhúng (OCRmyPDF + Tesseract `vie`):
+    * Quốc ngữ: đọc tốt (~90%) → dùng trực tiếp ở bước 2.
+    * Hán: render thành Latin rác → chỉ dùng làm tín hiệu tách trang; OCR lại ở bước 3.
+
+
+--------------------------------------------------------------------------------
+2. TỪ ĐIỂN / DICTIONARY (assets/)
+--------------------------------------------------------------------------------
+
+[Nguồn gốc — nguyên liệu xây dict]
+
+- Unicode Unihan database          assets/raw/Unihan_Readings.txt, Unihan_Variants.txt
+  URL: https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip
+  * trường kVietnamese → âm Hán-Việt (~8.3k ký tự). Nguồn chính, citable nhưng thưa,
+    đôi khi cho âm Nôm thay vì Hán-Việt.
+  * các trường variant (kSemanticVariant, kZVariant, kSimplifiedVariant,
+    kTraditionalVariant, kSpecializedSemanticVariant) → ứng viên tự gần giống (S1).
+  Dùng cho: âm Hán-Việt (S2) + chuyển tự + fallback S1.
+
+- KanjiDictVN (trungnt2910/KanjiDictVN)   assets/raw/kanjidictvn_1.json, _2.json
+  URL: https://raw.githubusercontent.com/trungnt2910/KanjiDictVN/master/out_vn/
+       kanji_bank_1.json, kanji_bank_2.json
+  Bộ KANJIDIC2/EDRDG (CC BY-SA), âm Hán-Việt curated ~10k ký tự. Lấp các ký tự
+  Unihan kVietnamese thiếu. Định dạng Yomichan kanji-bank (onyomi = âm Hán-Việt).
+
+- Viet74K — danh sách từ tiếng Việt     assets/dicts/Viet74K.txt
+  Nguồn: duyet/vietnamese-wordlist
+  Dùng cho: phân loại trang VI/Hán (bước 1) + chuẩn hóa chính tả (bước 2).
+
+- Từ điển mẫu khóa học (course samples)  assets/dicts/QuocNgu_SinoNom.dic,
+                                          SinoNom_Similar.dic (định dạng .dic)
+  Nguồn định dạng: khang3004/SinoNomViet_Transliteration_OCR
+  Bản đầy đủ của khóa học KHÔNG public → tái dựng từ Unihan + merge mẫu public.
+  >> Thả file .dic thật của khóa học vào assets/dicts/ (cùng định dạng) để nâng
+     chất lượng — code tự dùng (sample được ưu tiên khi trùng).
+
+[Lớp curated thủ công — override/supplement]
+
+- hanviet_overrides.csv   assets/dicts/   (<char>,<âm Hán-Việt>)
+  Sửa tay đè lên Unihan khi kVietnamese cho âm Nôm/sai. Trở thành âm chính.
+  Seed sẵn các chữ Hán cổ thường gặp (何→hà, 虜→lỗ, 帝→đế, ...).
+
+- hanviet_supplement.csv  assets/dicts/
+  Lấp các chữ mà CẢ Unihan kVietnamese LẪN KanjiDictVN đều thiếu (亦→diệc,
+  北→bắc, 祖→tổ, ...). Ưu tiên thấp nhất.
+
+[Dict sinh ra — build_dicts.py xuất]
+
+- hanviet.csv            sinonom_char, am_han_viet, all_readings
+  Thứ tự ưu tiên âm chính:
+  override > Unihan kVietnamese > KanjiDictVN > supplement > teacher > variant
+- QuocNgu_SinoNom.dic (S2)   quoc_ngu -> [sinonom chars]   (đảo readings + merge sample)
+- SinoNom_Similar.dic (S1)   sinonom -> [chữ gần giống]    (sample + Unihan variants)
+
+Lệnh build:  python -m pipeline.build_dicts
+
+
+--------------------------------------------------------------------------------
+3. OCR & MODEL
+--------------------------------------------------------------------------------
+- Lớp OCR nhúng PDF: OCRmyPDF + Tesseract `vie` (có sẵn trong PDF gốc)
+  → bước 1 dùng làm tín hiệu tách trang. (Bước 2 KHÔNG đọc lớp này nữa —
+  nó nhiễu diacritic; bước 2 re-OCR ảnh trang bằng Surya, xem dưới.)
+
+- Surya OCR (surya-ocr 0.13–0.15)   — OCR Quốc ngữ bước 2 (re-OCR ảnh trang)
+  Tự detect dòng + nhận dạng; phục hồi tone/diacritic mà Tesseract làm hỏng.
+  Trước khi OCR, cắt bỏ dải running-head trên cùng (dòng "QUYỂN n  <số trang>",
+  hoặc số trang lẻ) bằng projection-profile để khỏi lọt thành câu nhiễu trong
+  vi_sentences/alignment. Cắt thận trọng: chỉ 1 dòng mỏng sát mép trên + cách
+  body bằng gap rộng → tiêu đề nội dung / trang mở chương không bị cắt
+  (VIETNAMESE["crop_header"], mặc định bật).
+
+- PaddleOCR 3.0.2 (paddlepaddle 3.0.0)   — OCR Hán bước 3 (engine OCR duy nhất)
+  lang = chinese_cht (phồn thể, hợp bản khắc mộc). Detect cột + xoay 90° đọc dọc.
+  Độ chính xác ~70%; lỗi còn lại sửa offline bằng luật S1∩S2 ở bước 4.
+  LƯU Ý cài: paddlepaddle từ index của Paddle, KHÔNG từ PyPI (CPU build trên Colab).
+
+- bge-m3 (BAAI/bge-m3, qua FlagEmbedding)  — bước 4, embedding song ngữ vi<->zh
+  Align câu bằng DP trên cosine dense + đối chiếu sparse/lexical (notebook ②).
+  Thay LaBSE: cosine Hán cổ cao hơn, ít cặp nghi lệch hơn (~1% vs ~13%).
+
+
+--------------------------------------------------------------------------------
+4. THƯ VIỆN CHÍNH (requirements.txt)
+--------------------------------------------------------------------------------
+- PyMuPDF (fitz) >=1.24        bước 1: load/phân loại/render PDF; bước 2: đọc text nhúng
+- opencv-python-headless >=4.9 tiền xử lý ảnh (deskew/binarize/denoise) trước OCR
+- numpy ==1.26.4              BẮT BUỘC <2 (paddle 3.0.0 build với numpy 1.x; numpy 2.x → segfault)
+- pandas ==2.2.3             wheel hợp numpy 1.26.4
+- openpyxl >=3.1             bước 4: ghi .xlsx
+- underthesea >=6.7          bước 2: tách câu tiếng Việt
+- paddlepaddle ==3.0.0 / paddleocr ==3.0.2   bước 3: OCR Hán
+- langchain* 0.3.x           dep gián tiếp của paddlex 3.0.2 (giữ <1)
+- FlagEmbedding >=1.2 + torch >=2.0  bước 4: bge-m3 align
+
+
+--------------------------------------------------------------------------------
+5. THAM KHẢO / SPEC
+--------------------------------------------------------------------------------
+- req/MidTerm_Requirement.pdf
+- req/SinoNom_OCR_TransliterationAlignment.pdf   (định nghĩa ID schema DSG_fff.ccc.ppp.ss)
+- assets/raw/alignment_validator_reference.py    thuật toán chuẩn S1∩S2 (Levenshtein)
+  Quy tắc: sn∈S2 → BLACK; sn∉S2, G=S1∩S2, |G|==1 → GREEN (sửa); còn lại RED/flag.
+================================================================================

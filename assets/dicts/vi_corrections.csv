@@ -1,0 +1,20 @@
+wrong,correct,note
+# Domain-specific OCR corrections for the Minh Mệnh Chính Yếu Vietnamese side.
+# Applied per-sentence BEFORE the generic edit-distance spell fixer; the original
+# is always kept in raw_text. Matching is case-insensitive and whitespace/hyphen
+# insensitive (a space in `wrong` matches one or more spaces OR hyphens), with
+# Vietnamese-aware word boundaries. Replacement copies the matched casing
+# (ALL CAPS -> all caps, Titlecase -> titlecase).
+#
+# ONLY add entries you are certain about (reign titles, fixed institution names,
+# the book title). Grow this from review.jsonl. Keep risky context-dependent
+# substitutions (e.g. vàng->vâng vs hoàng) OUT — the generic fixer + reviewer
+# handle those.
+#
+# --- Nguyễn-dynasty reign titles (niên hiệu) ---------------------------------
+Triệu trị,Thiệu Trị,no "Triệu Trị" reign exists; OCR of Thiệu Trị
+Minh mènh,Minh Mệnh,mènh is not a word
+Minh mẹnh,Minh Mệnh,mẹnh OCR of mệnh
+# --- book title / court institutions -----------------------------------------
+Quốc sử quân,Quốc Sử Quán,quân OCR of quán (國史館)
+chinh yếu,chính yếu,missing diacritic (keep "chánh yếu" — valid period spelling)

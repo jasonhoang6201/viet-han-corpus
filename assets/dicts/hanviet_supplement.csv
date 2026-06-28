@@ -1,0 +1,19 @@
+# hanviet_supplement.csv — curated âm Hán-Việt for the handful of chars that
+# NEITHER Unihan kVietnamese NOR KanjiDictVN (EDRDG) covers. Lowest-priority
+# fill in build_dicts (after both authoritative sources + variant fallback).
+# Mostly simplified forms whose Unihan variant link is missing. Extend with
+# teacher data as new gaps appear.
+# Format: sinonom_char,am_han_viet
+sinonom_char,am_han_viet
+閱,duyệt
+赞,tán
+兹,tư
+资,tư
+辑,tập
+啟,khải
+贸,mậu
+暨,kị
+珅,thân
+姬,cơ
+暲,chương
+亓,kỳ

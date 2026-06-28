@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dóng hàng Hán–Việt · Phân tích phương pháp · Minh Mệnh Chính Yếu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f5efe3;
+  --paper-2:#efe7d7;
+  --card:#fbf7ee;
+  --ink:#211b14;
+  --ink-soft:#5b5146;
+  --ink-faint:#8a7d6c;
+  --line:#ddd0ba;
+  --line-strong:#c9b89c;
+  --seal:#b1382c;          /* cinnabar / seal ink */
+  --seal-soft:#cf6a55;
+  --gold:#9a7327;
+  --jade:#3f6b53;
+  --green:#3f7a4d;
+  --red:#b1382c;
+  --black-dot:#211b14;
+  --shadow:0 1px 0 rgba(33,27,20,.04), 0 18px 40px -28px rgba(33,27,20,.45);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Be Vietnam Pro",system-ui,sans-serif;
+  font-weight:400;line-height:1.65;-webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(177,56,44,.05), transparent 38%),
+    radial-gradient(circle at 88% 0%, rgba(154,115,39,.06), transparent 42%);
+}
+/* subtle paper grain */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+}
+.wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 28px}
+a{color:var(--seal);text-decoration:none;border-bottom:1px solid rgba(177,56,44,.3)}
+a:hover{border-color:var(--seal)}
+
+/* ---- Typography ---- */
+h1,h2,h3{font-family:"Newsreader",Georgia,serif;font-weight:500;line-height:1.15;letter-spacing:-.01em}
+h2{font-size:clamp(1.7rem,3.4vw,2.5rem);margin:0 0 .2em;font-weight:600}
+h3{font-size:1.32rem;margin:0 0 .4em;font-weight:600}
+.cjk{font-family:"Noto Serif SC","Newsreader",serif}
+.mono{font-family:"JetBrains Mono",monospace;font-size:.86em}
+.eyebrow{font-family:"JetBrains Mono",monospace;font-size:.74rem;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--seal);font-weight:500}
+
+/* ---- Header ---- */
+header{padding:84px 0 30px;border-bottom:1px solid var(--line)}
+.seal-mark{display:inline-flex;align-items:center;justify-content:center;
+  width:64px;height:64px;border:2px solid var(--seal);border-radius:8px;
+  color:var(--seal);font-family:"Noto Serif SC",serif;font-weight:700;font-size:1.5rem;
+  letter-spacing:-2px;line-height:1;padding:6px;text-align:center;
+  box-shadow:inset 0 0 0 3px var(--paper),inset 0 0 0 4px rgba(177,56,44,.25);
+  transform:rotate(-3deg)}
+header h1{font-size:clamp(2.3rem,6vw,4rem);font-weight:600;margin:26px 0 .15em;max-width:16ch}
+header .lede{font-size:1.18rem;color:var(--ink-soft);max-width:60ch;font-weight:300}
+.meta-row{display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:26px;
+  font-family:"JetBrains Mono",monospace;font-size:.78rem;color:var(--ink-faint)}
+.meta-row b{color:var(--ink-soft);font-weight:500}
+
+/* ---- Verdict box ---- */
+.verdict{margin:42px 0;background:var(--card);border:1px solid var(--line-strong);
+  border-radius:14px;padding:30px 34px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.verdict::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--seal)}
+.verdict h3{margin-bottom:.3em}
+.score-line{display:flex;flex-wrap:wrap;gap:14px;margin-top:16px}
+.pill{font-family:"JetBrains Mono",monospace;font-size:.78rem;padding:6px 13px;border-radius:100px;
+  border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-soft)}
+.pill.good{border-color:rgba(63,122,77,.5);color:var(--green);background:rgba(63,122,77,.07)}
+.pill.warn{border-color:rgba(154,115,39,.5);color:var(--gold);background:rgba(154,115,39,.08)}
+
+/* ---- Sections ---- */
+section{padding:54px 0;border-bottom:1px solid var(--line)}
+section>.eyebrow{display:block;margin-bottom:10px}
+.section-intro{max-width:64ch;color:var(--ink-soft);font-size:1.05rem;margin-bottom:8px}
+
+/* ---- Two-level cards ---- */
+.levels{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:30px}
+.level{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px;
+  box-shadow:var(--shadow)}
+.level .tag{font-family:"JetBrains Mono",monospace;font-size:.72rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--seal);font-weight:500}
+.level h3{margin-top:8px}
+.level p{color:var(--ink-soft);font-size:.97rem;margin:.5em 0}
+.level .where{margin-top:14px;font-family:"JetBrains Mono",monospace;font-size:.74rem;
+  color:var(--ink-faint);border-top:1px dashed var(--line-strong);padding-top:12px}
+
+/* ====== FLOW DIAGRAM ====== */
+.flow{margin-top:34px}
+.flow-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:26px;font-size:.8rem;color:var(--ink-soft)}
+.flow-legend span{display:inline-flex;align-items:center;gap:7px}
+.swatch{width:14px;height:14px;border-radius:4px;border:1px solid var(--line-strong)}
+.sw-vi{background:#eef3ee;border-color:#bcd0bf}
+.sw-han{background:#f6ece6;border-color:#e0b8a6}
+.sw-align{background:#fbf0d8;border-color:#dcc188}
+.sw-out{background:#eef0f5;border-color:#bcc2d4}
+
+.diagram{position:relative}
+.lanes{display:grid;grid-template-columns:1fr 1fr;gap:30px}
+.lane-title{font-family:"Newsreader",serif;font-size:1.05rem;font-weight:600;
+  text-align:center;margin-bottom:14px;color:var(--ink)}
+.lane-title small{display:block;font-family:"JetBrains Mono",monospace;font-size:.66rem;
+  letter-spacing:.1em;color:var(--ink-faint);font-weight:400;margin-top:2px;text-transform:uppercase}
+
+.node{background:var(--card);border:1px solid var(--line-strong);border-radius:11px;
+  padding:13px 16px;margin:0 auto;max-width:330px;position:relative;box-shadow:0 6px 18px -14px rgba(33,27,20,.5)}
+.node + .node{margin-top:30px}
+.node .nlabel{font-weight:600;font-size:.96rem}
+.node .nsub{font-size:.8rem;color:var(--ink-faint);margin-top:2px;font-family:"JetBrains Mono",monospace}
+.node .ndesc{font-size:.82rem;color:var(--ink-soft);margin-top:6px}
+.node.vi{background:#f1f5f1;border-color:#c4d6c6}
+.node.han{background:#f9efe9;border-color:#e6c2b1}
+.node.align{background:#fcf3de;border-color:#dcc188}
+.node.out{background:#eef0f6;border-color:#c2c8d8}
+/* down arrow connector */
+.node:not(:last-child)::after{content:"";position:absolute;left:50%;bottom:-22px;
+  transform:translateX(-50%);width:2px;height:14px;background:var(--line-strong)}
+.node:not(:last-child)::before{content:"";position:absolute;left:50%;bottom:-24px;
+  transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:7px solid var(--line-strong)}
+
+.merge-band{margin:34px 0 0;position:relative}
+.merge-band .converge{height:30px;position:relative}
+.merge-band .converge::before,.merge-band .converge::after{content:"";position:absolute;top:0;
+  width:46%;height:2px;background:var(--line-strong)}
+.merge-band .converge::before{left:2%;transform:skewY(3deg);transform-origin:left}
+.merge-band .converge::after{right:2%;transform:skewY(-3deg);transform-origin:right}
+
+.aligner{background:linear-gradient(180deg,#fdf6e4,#f9eecb);border:1.5px solid var(--gold);
+  border-radius:16px;padding:24px 26px;box-shadow:0 20px 44px -30px rgba(154,115,39,.8);position:relative}
+.aligner .acrown{font-family:"JetBrains Mono",monospace;font-size:.7rem;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--gold);font-weight:600}
+.aligner h3{margin:6px 0 4px}
+.aligner .model{font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--seal);font-weight:500}
+.signals{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}
+.signal{background:var(--paper);border:1px solid var(--line-strong);border-radius:10px;padding:12px 13px}
+.signal .sname{font-weight:600;font-size:.9rem}
+.signal .sform{font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--seal);margin-top:3px}
+.signal .stext{font-size:.78rem;color:var(--ink-soft);margin-top:6px}
+.dp-note{margin-top:18px;background:var(--paper);border:1px dashed var(--line-strong);border-radius:10px;
+  padding:13px 15px;font-size:.84rem;color:var(--ink-soft)}
+.dp-note b{color:var(--ink);font-weight:600}
+.dp-note .mono{color:var(--seal)}
+
+.fan{height:26px;position:relative;margin-top:8px}
+.fan::before{content:"";position:absolute;left:50%;top:0;transform:translateX(-50%);
+  width:2px;height:14px;background:var(--line-strong)}
+.fan::after{content:"";position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid var(--line-strong)}
+.outputs{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+
+/* char validation rail */
+.charval{margin-top:40px;background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:26px 28px;box-shadow:var(--shadow)}
+.charval h3{margin-bottom:4px}
+.cv-flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:12px;margin-top:18px}
+.cv-step{flex:1 1 150px;background:var(--paper);border:1px solid var(--line-strong);border-radius:10px;
+  padding:13px 15px;position:relative}
+.cv-step .cvk{font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--ink-faint)}
+.cv-step .cvv{font-size:.88rem;margin-top:4px;color:var(--ink-soft)}
+.cv-result{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.cv-badge{display:flex;align-items:center;gap:9px;border:1px solid var(--line-strong);border-radius:10px;
+  padding:10px 14px;background:var(--paper);font-size:.84rem;color:var(--ink-soft);flex:1 1 200px}
+.dot{width:11px;height:11px;border-radius:50%;flex:none}
+.dot.b{background:var(--black-dot)}.dot.g{background:var(--green)}.dot.r{background:var(--red)}
+.cv-badge b{color:var(--ink)}
+
+/* ---- Comparison table ---- */
+.table-scroll{overflow-x:auto;margin-top:26px;border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;min-width:760px;background:var(--card);font-size:.9rem}
+th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font-family:"JetBrains Mono",monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:500;background:var(--paper-2)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.here{background:rgba(154,115,39,.09)}
+tbody tr.here td:first-child{box-shadow:inset 4px 0 0 var(--gold)}
+td .m{font-weight:600;display:block}
+td .y{font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--ink-faint)}
+.use{font-size:.84rem;color:var(--ink-soft)}
+.fit{font-family:"JetBrains Mono",monospace;font-size:.72rem;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.fit.hi{background:rgba(63,122,77,.13);color:var(--green)}
+.fit.mid{background:rgba(154,115,39,.13);color:var(--gold)}
+.fit.lo{background:rgba(177,56,44,.12);color:var(--seal)}
+
+/* ---- Strength / weakness ---- */
+.assess{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:28px}
+.col{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px 26px;box-shadow:var(--shadow)}
+.col h3{display:flex;align-items:center;gap:10px}
+.col h3 .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:.9rem;font-weight:700;flex:none}
+.col.pro h3 .ic{background:rgba(63,122,77,.15);color:var(--green)}
+.col.con h3 .ic{background:rgba(177,56,44,.13);color:var(--seal)}
+.col ul{list-style:none;padding:0;margin:14px 0 0}
+.col li{padding:11px 0;border-top:1px solid var(--line);font-size:.92rem;color:var(--ink-soft)}
+.col li:first-child{border-top:none}
+.col li b{color:var(--ink);font-weight:600}
+
+/* ---- Recommendations ---- */
+.recs{counter-reset:r;margin-top:26px;display:grid;gap:14px}
+.rec{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start;
+  background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px 24px;box-shadow:var(--shadow)}
+.rec::before{counter-increment:r;content:counter(r,decimal-leading-zero);
+  font-family:"Newsreader",serif;font-size:1.6rem;color:var(--seal);font-weight:600;line-height:1}
+.rec h3{font-size:1.08rem;margin-bottom:.2em}
+.rec p{margin:0;color:var(--ink-soft);font-size:.92rem}
+.rec .why{display:inline-block;margin-top:8px;font-family:"JetBrains Mono",monospace;font-size:.72rem;
+  color:var(--gold)}
+
+footer{padding:50px 0 80px}
+footer .src{font-size:.82rem;color:var(--ink-faint)}
+footer .src h3{font-size:.95rem;color:var(--ink-soft);margin-bottom:10px}
+footer .src ul{padding-left:18px;margin:0;line-height:1.9}
+footer .end{margin-top:34px;font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--ink-faint);
+  border-top:1px solid var(--line);padding-top:20px}
+
+@media(max-width:760px){
+  .levels,.lanes,.assess,.signals,.outputs{grid-template-columns:1fr}
+  .signals,.outputs{gap:12px}
+  .merge-band .converge{display:none}
+  header{padding:56px 0 24px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="seal-mark cjk">明命<br>政要</div>
+  <div class="eyebrow" style="margin-top:22px">Phân tích kỹ thuật · Dóng hàng Hán–Việt</div>
+  <h1>Cách dóng hàng song ngữ trong pipeline có tốt không?</h1>
+  <p class="lede">Mổ xẻ cơ chế <b>alignment</b> giữa bản dịch Quốc ngữ và nguyên bản Hán của bộ <i>Minh Mệnh Chính Yếu</i>, đặt nó cạnh các phương pháp đang thịnh hành, và đánh giá độ phù hợp cho chính use-case này.</p>
+  <div class="meta-row">
+    <span><b>Lõi câu:</b> bge-m3 (dense+sparse) + DP đơn điệu</span>
+    <span><b>Lõi chữ:</b> luật từ điển S1∩S2</span>
+    <span><b>Nguồn:</b> notebook ② · step4_align.py · config.py</span>
+  </div>
+</header>
+
+<!-- VERDICT -->
+<div class="verdict">
+  <h3>Kết luận nhanh</h3>
+  <p style="color:var(--ink-soft);margin:.4em 0 0;max-width:68ch">
+    Cách làm hiện tại dùng đúng model phù hợp nhất cho bài toán này: <b>bge-m3</b> — một model embedding
+    đa ngữ mới, hiểu tốt cả chữ Hán lẫn tiếng Việt. Nó còn cộng thêm hai phép kiểm tra từ vựng rất hợp với
+    tiếng Việt gốc Hán. Làn Hán còn có bước <b>làm sạch chữ bằng VLM + LM</b> trước khi dóng hàng — đúng hướng và
+    có bằng chứng định tính (xem mục 03), nhưng hiện mới chạy riêng cho vol1 và <b>chưa được nối vào notebook</b>.
+    Điểm yếu lớn nhất không nằm ở thuật toán, mà ở chỗ <b>chưa có bộ dữ liệu mẫu đủ lớn để chấm điểm</b>
+    (đo độ chính xác bằng con số), và việc <b>cắt câu Hán đang theo cột</b> chứ chưa theo ngữ nghĩa.
+  </p>
+  <div class="score-line">
+    <span class="pill good">✓ Dùng bge-m3 — model phù hợp nhất</span>
+    <span class="pill good">✓ Tận dụng từ vựng Hán–Việt</span>
+    <span class="pill good">✓ Có bước làm sạch chữ (VLM + LM)</span>
+    <span class="pill good">✓ Chạy offline, lặp lại được</span>
+    <span class="pill warn">△ Bước làm sạch chưa nối vào flow</span>
+    <span class="pill warn">△ Chưa có bộ mẫu đủ lớn để chấm điểm</span>
+    <span class="pill warn">△ Đơn vị Hán là cột, chưa là câu</span>
+  </div>
+</div>
+
+<!-- TWO LEVELS -->
+<section id="levels">
+  <span class="eyebrow">01 — Bức tranh tổng</span>
+  <h2>Có hai tầng dóng hàng độc lập</h2>
+  <p class="section-intro">Trong source này có hai cơ chế khác hẳn nhau, giải quyết hai bài toán khác nhau.
+  Cần phân biệt rõ để khỏi nhầm.</p>
+  <div class="levels">
+    <div class="level">
+      <span class="tag">Tầng A · câu ↔ câu</span>
+      <h3>Dóng hàng ngữ nghĩa</h3>
+      <p>Ghép mỗi câu dịch Quốc ngữ với một hoặc nhiều cột Hán tương ứng. Đây mới là alignment đúng nghĩa của
+      corpus song ngữ, và là trọng tâm câu hỏi của bạn.</p>
+      <p>Dùng <b>embedding bge-m3</b> để đo độ tương đồng, rồi <b>quy hoạch động (DP)</b> tìm cách ghép tối ưu
+      theo thứ tự.</p>
+      <div class="where">notebooks/Minh_Menh_2_Han_Align_Colab.ipynb · cell 15–16<br>→ output_bge/&lt;VOL&gt;/alignment.jsonl</div>
+    </div>
+    <div class="level">
+      <span class="tag">Tầng B · chữ ↔ âm</span>
+      <h3>Kiểm chứng ký tự</h3>
+      <p>Với từng chữ Hán đã OCR, kiểm tra xem nó có khớp với âm Hán–Việt đọc kèm hay không, bằng <b>luật từ điển
+      S1∩S2</b> (theo guide môn học). Không phải dóng hàng liên ngôn ngữ — mà là bắt lỗi OCR.</p>
+      <p>Cho ra ba màu: <b>ĐEN</b> (OCR đúng), <b>XANH</b> (sửa được theo chữ gần giống), <b>ĐỎ</b> (OCR sai, cần người soát).</p>
+      <div class="where">pipeline/step4_align.py · class CharValidator<br>→ out/&lt;VOL&gt;/char_validation.jsonl</div>
+    </div>
+  </div>
+</section>
+
+<!-- FLOW DIAGRAM -->
+<section id="flow">
+  <span class="eyebrow">02 — Sơ đồ luồng</span>
+  <h2>Luồng chạy của tầng A (dóng hàng câu)</h2>
+  <p class="section-intro">Hai làn dữ liệu được chuẩn bị riêng, gặp nhau tại bộ aligner bge-m3, rồi toả ra các đầu ra.
+  Đọc từ trên xuống.</p>
+
+  <div class="flow">
+    <div class="flow-legend">
+      <span><i class="swatch sw-vi"></i> Làn Việt (Quốc ngữ)</span>
+      <span><i class="swatch sw-han"></i> Làn Hán (SinoNom)</span>
+      <span><i class="swatch sw-align"></i> Bộ dóng hàng</span>
+      <span><i class="swatch sw-out"></i> Đầu ra</span>
+    </div>
+
+    <div class="diagram">
+      <div class="lanes">
+        <!-- VI lane -->
+        <div>
+          <div class="lane-title">Làn Việt <small>notebook ① → ②</small></div>
+          <div class="node vi">
+            <div class="nlabel">OCR Surya</div>
+            <div class="nsub">step2_vietnamese</div>
+            <div class="ndesc">Đọc lại ảnh trang dịch, phục hồi dấu thanh mà lớp Tesseract nhúng làm hỏng.</div>
+          </div>
+          <div class="node vi">
+            <div class="nlabel">Tách câu underthesea</div>
+            <div class="nsub">vi_sentences.jsonl</div>
+            <div class="ndesc">Mỗi dòng = một câu dịch (~27 từ), kèm id <span class="mono">HVH_001…</span></div>
+          </div>
+          <div class="node vi">
+            <div class="nlabel">Lọc rác đầu sách</div>
+            <div class="nsub">filter_vi_sentences()</div>
+            <div class="ndesc">Bỏ trang bìa / con dấu thư viện. Giữ câu khi ≥ 50% token là từ Việt thật (chống lệch offset cả DP).</div>
+          </div>
+        </div>
+        <!-- HAN lane -->
+        <div>
+          <div class="lane-title">Làn Hán <small>notebook ②</small></div>
+          <div class="node han">
+            <div class="nlabel">PaddleOCR dọc (base)</div>
+            <div class="nsub">step3_sinonom</div>
+            <div class="ndesc">Nhận dạng từng <b>cột</b> chữ Hán theo chiều dọc, phải→trái. Đây là bản đọc thô.</div>
+          </div>
+          <div class="node han" style="border-color:var(--gold);background:#fbf1de">
+            <div class="nlabel">★ Làm sạch chữ: VLM trọng tài + LM hậu kiểm</div>
+            <div class="nsub">output_consensus / output_lm</div>
+            <div class="ndesc">Qwen-VL đọc lại từng cột làm trọng tài, LM soát xác suất từng chữ và gợi ý chữ đúng — sửa lỗi base trước khi dóng hàng. <b>Chi tiết ở mục 03.</b></div>
+          </div>
+          <div class="node han">
+            <div class="nlabel">Mỗi cột = một đơn vị Hán (đã sửa)</div>
+            <div class="nsub">han_sentences.jsonl</div>
+            <div class="ndesc">Hán cổ không có dấu câu nên mỗi cột (~12 chữ) là một đơn vị. Kèm âm Hán–Việt lấy từ từ điển.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MERGE -->
+      <div class="merge-band">
+        <div class="converge"></div>
+        <div class="aligner">
+          <div class="acrown">◆ Bộ dóng hàng câu</div>
+          <h3>bge-m3 · ba tín hiệu + DP đơn điệu</h3>
+          <div class="model">model = BGEM3FlagModel("BAAI/bge-m3")</div>
+
+          <div class="signals">
+            <div class="signal">
+              <div class="sname">① Dense (nghĩa)</div>
+              <div class="sform">cos(sinonom, vi_text)</div>
+              <div class="stext">Cosine giữa vector dày của chữ Hán và câu Việt. Tín hiệu ngữ nghĩa neural chính.</div>
+            </div>
+            <div class="signal">
+              <div class="sname">② Jaccard (từ vựng)</div>
+              <div class="sform">âm Hán–Việt ∩ vi</div>
+              <div class="stext">Trùng token giữa âm Hán–Việt và bản dịch. Tận dụng kho từ Hán–Việt khổng lồ của tiếng Việt.</div>
+            </div>
+            <div class="signal">
+              <div class="sname">③ Sparse (bge)</div>
+              <div class="sform">lexical_weights</div>
+              <div class="stext">Trọng số từ vựng học sẵn của bge-m3 — ý kiến thứ ba, độc lập với cosine.</div>
+            </div>
+          </div>
+
+          <div class="dp-note">
+            <b>Quy hoạch động (DP) đơn điệu:</b> xét lần lượt và giữ đúng thứ tự câu, cho phép ghép
+            <span class="mono">1:1, 1:2, 2:1, …, 5:1, 2:2</span> và bỏ trống <span class="mono">1:0, 0:1</span>.
+            Vì một câu Việt thường trải dài nhiều cột Hán nên cho phép ghép tối đa <b>5 cột Hán cho 1 câu Việt</b>.<br>
+            Điểm mỗi bước: <span class="mono">gain = s nếu s ≥ 0.50, ngược lại s − 1</span> (trừ điểm cặp yếu). Lần ngược lại để ra danh sách cặp.
+          </div>
+          <div class="dp-note" style="margin-top:10px">
+            <b>Cờ nghi ngờ (không tự xoá, chỉ đẩy người soát):</b>
+            <span class="mono">suspect</span> = dense &lt; 0.45 <i>và</i> Jaccard &lt; 0.05 ·
+            <span class="mono">suspect_bge</span> = dense &lt; 0.45 <i>và</i> sparse &lt; phân vị 10.
+            Chỉ cần một tín hiệu mạnh là đủ gỡ cờ, nên không tín hiệu nào tự gây báo động giả một mình.
+          </div>
+        </div>
+      </div>
+
+      <div class="fan"></div>
+      <div class="outputs">
+        <div class="node out" style="margin-top:0">
+          <div class="nlabel">alignment.jsonl</div>
+          <div class="nsub">han_ids · vie_ids · similarity</div>
+          <div class="ndesc">Mỗi cặp câu kèm cả ba điểm số.</div>
+        </div>
+        <div class="node out" style="margin-top:0">
+          <div class="nlabel">…_alignment_bge.xlsx</div>
+          <div class="nsub">sheet sentence_alignment</div>
+          <div class="ndesc">Bảng nộp: SinoNom · âm · nghĩa thuần Việt · cờ "Nghi lệch".</div>
+        </div>
+        <div class="node out" style="margin-top:0">
+          <div class="nlabel">review.jsonl</div>
+          <div class="nsub">làn soát của người</div>
+          <div class="ndesc">Gom cặp nghi ngờ + chữ ĐỎ + câu Việt nhiều từ lạ.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAR VALIDATION RAIL -->
+    <div class="charval">
+      <span class="eyebrow">Tầng B chạy song song</span>
+      <h3>Kiểm chứng ký tự — luật S1∩S2</h3>
+      <p style="color:var(--ink-soft);max-width:70ch;margin:.4em 0 0">Với mỗi cặp (chữ SinoNom <span class="cjk">sn</span>, âm Quốc ngữ <span class="mono">qn</span>):</p>
+      <div class="cv-flow">
+        <div class="cv-step">
+          <div class="cvk">S2 = QuocNgu_SinoNom.dic</div>
+          <div class="cvv">âm <span class="mono">qn</span> → tập chữ Hán hợp lệ</div>
+        </div>
+        <div class="cv-step">
+          <div class="cvk">if sn ∈ S2(qn)</div>
+          <div class="cvv">OCR đúng ngay → <b>ĐEN</b></div>
+        </div>
+        <div class="cv-step">
+          <div class="cvk">S1 = SinoNom_Similar.dic</div>
+          <div class="cvv">sn → các chữ trông gần giống; lấy giao với S2(qn)</div>
+        </div>
+        <div class="cv-step">
+          <div class="cvk">giao ≥ 1 / = 0</div>
+          <div class="cvv">≥1 → <b>XANH</b> (sửa) · 0 → <b>ĐỎ</b> (sai)</div>
+        </div>
+      </div>
+      <div class="cv-result">
+        <div class="cv-badge"><span class="dot b"></span><span><b>ĐEN</b> — chữ đọc khớp âm, tin được</span></div>
+        <div class="cv-badge"><span class="dot g"></span><span><b>XANH</b> — sửa sang chữ gần giống đúng âm</span></div>
+        <div class="cv-badge"><span class="dot r"></span><span><b>ĐỎ</b> — không chữ nào hợp âm → người soát</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONSENSUS ARCHITECTURE -->
+<section id="consensus">
+  <span class="eyebrow">03 — Kiến trúc làm sạch chữ Hán</span>
+  <h2>Đồng thuận OCR: VLM trọng tài + LM hậu kiểm</h2>
+  <p class="section-intro">Đây là phần bạn hỏi. Kết quả trong source cho thấy bước này sửa được lỗi thật của PaddleOCR,
+  nên trong kiến trúc đề xuất nó là bước <b>bắt buộc</b> chạy trước khi dóng hàng, chứ không phải tuỳ chọn.</p>
+
+  <div class="aligner" style="background:linear-gradient(180deg,#fbf3e2,#f6eccd)">
+    <div class="acrown">◆ Mỗi cột chữ Hán đi qua</div>
+    <h3 style="margin:6px 0 10px">Hai ý kiến → trọng tài → hậu kiểm</h3>
+    <div class="signals">
+      <div class="signal">
+        <div class="sname">base · PaddleOCR</div>
+        <div class="sform">bản đọc thô</div>
+        <div class="stext">Engine ở step3. Nhanh nhưng sai nhiều với chữ mờ hoặc hiếm.</div>
+      </div>
+      <div class="signal" style="border-color:var(--gold)">
+        <div class="sname">qwen · Qwen-VL</div>
+        <div class="sform">VLM đọc lại</div>
+        <div class="stext">Model thị giác–ngôn ngữ đọc lại đúng ảnh từng cột, làm trọng tài. Chạy trên cả 4706 cột.</div>
+      </div>
+      <div class="signal" style="opacity:.55">
+        <div class="sname">spec · OCR riêng SinoNom</div>
+        <div class="sform">hiện đang hỏng</div>
+        <div class="stext">Trống ở 2387/2868 cột, gần như không đóng góp. Thực chất chỉ còn base so với qwen.</div>
+      </div>
+    </div>
+    <div class="dp-note" style="margin-top:16px">
+      <b>Trọng tài (vote_mode = qwen_arbiter):</b> base và qwen khớp nhau thì chốt luôn (≈89% chữ tự chốt).
+      Lệch nhau thì lấy theo qwen và đẩy vào <span class="mono">review_queue.jsonl</span> cho người soát (~11% chữ).
+    </div>
+    <div class="dp-note" style="margin-top:10px">
+      <b>LM hậu kiểm (output_lm):</b> một model ngôn ngữ chấm xác suất từng chữ theo ngữ cảnh; chữ nào quá vô lý
+      thì gợi ý chữ đúng kèm top-k. Ví dụ chữ <span class="cjk">安</span> có <span class="mono">p_ocr = 0.0001</span>,
+      LM gợi ý <span class="cjk">要</span> với <span class="mono">p = 0.81</span>.
+    </div>
+  </div>
+
+  <div class="levels" style="margin-top:24px">
+    <div class="level" style="border-color:rgba(63,122,77,.45)">
+      <span class="tag" style="color:var(--green)">Bằng chứng nó tốt hơn</span>
+      <h3>Có — về mặt định tính</h3>
+      <p><b>Ví dụ chốt hạ:</b> ngay tên sách <span class="cjk">明命政要</span> (Minh Mệnh Chính Yếu), base đọc sai thành
+      <span class="cjk">明命政安饰</span>…, qwen sửa lại đúng <span class="cjk">明命政要節</span>… Vì ta biết chắc tên sách
+      nên đây là lỗi của base và đúng của qwen, kiểm chứng được.</p>
+      <p><b>Trên tập gold nhỏ:</b> base đúng 0/9, còn qwen và consensus đúng 5/9.</p>
+      <p><b>Lý thuyết ủng hộ:</b> Qwen-VL dẫn đầu OCR Hán cổ; hậu kiểm bằng VLM/LM được chứng minh giảm mạnh lỗi ký tự.</p>
+    </div>
+    <div class="level" style="border-color:rgba(154,115,39,.45)">
+      <span class="tag" style="color:var(--gold)">Còn thiếu để khẳng định bằng số</span>
+      <h3>Chưa đủ chốt định lượng</h3>
+      <p><b>Tập gold quá nhỏ:</b> chỉ 9 chữ, lại toàn chữ khó đang tranh chấp (nên base = 0). Không đủ để kết luận mức cải thiện thật trên toàn văn bản.</p>
+      <p><b>Tốn kém:</b> qwen chạy trên mọi cột (4706) nên chậm và đắt — đó là lý do hiện mới chạy ad-hoc cho vol1.</p>
+      <p><b>spec hỏng:</b> nên gọi đúng tên là base + VLM + LM, không phải đồng thuận của 3 engine OCR.</p>
+    </div>
+  </div>
+
+  <div class="dp-note" style="margin-top:18px;background:var(--card);border-style:solid;border-color:var(--seal)">
+    <b style="color:var(--seal)">Lưu ý quan trọng:</b> sơ đồ đã vẽ bước này là bắt buộc theo kiến trúc đề xuất, nhưng
+    <b>code hiện chưa nối nó vào notebook ②</b> — aligner vẫn đang đọc <span class="mono">han_sentences.jsonl</span> thô từ PaddleOCR.
+    Để biến thành bắt buộc thật sự cần: đưa code consensus vào repo và cho step4 đọc bản chữ đã sửa. Xem mục khuyến nghị.
+  </div>
+</section>
+
+<!-- WHY BGE-M3 -->
+<section id="why">
+  <span class="eyebrow">04 — Vì sao bge-m3</span>
+  <h2>Vì sao bge-m3 là lựa chọn phù hợp nhất</h2>
+  <p class="section-intro">bge-m3 là một model embedding hiện đại. Với bài toán Hán cổ dóng hàng tiếng Việt, nó có ba điểm hợp:</p>
+  <div class="levels" style="grid-template-columns:repeat(3,1fr)">
+    <div class="level">
+      <span class="tag">Hiểu cả hai thứ tiếng</span>
+      <h3>Đa ngữ</h3>
+      <p>Được huấn luyện trên rất nhiều ngôn ngữ, hiểu tốt cả chữ Hán lẫn tiếng Việt trong cùng một không gian
+      vector, nên đo được độ giống nghĩa giữa hai phía.</p>
+    </div>
+    <div class="level">
+      <span class="tag">Một lần mã hoá, hai tín hiệu</span>
+      <h3>Dense + sparse</h3>
+      <p>Chỉ cần mã hoá một lần là có sẵn cả vector nghĩa (dense) lẫn trọng số từ vựng (sparse). Nhờ vậy có ngay
+      thêm một tín hiệu để kiểm tra chéo mà không tốn thêm bước.</p>
+    </div>
+    <div class="level">
+      <span class="tag">Tách bạch đúng/sai rõ</span>
+      <h3>Điểm số rõ ràng</h3>
+      <p>Điểm cosine của bge-m3 cho cặp đúng và cặp sai cách nhau khá rõ (cặp đúng thường quanh 0.45–0.66), nên
+      đặt ngưỡng để lọc cặp tốt khỏi cặp rác dễ hơn.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ASSESSMENT -->
+<section id="assess">
+  <span class="eyebrow">05 — Đánh giá cho chính use-case này</span>
+  <h2>Có thực sự "tốt" cho Minh Mệnh Chính Yếu?</h2>
+  <p class="section-intro">Bản dịch bám sát nguyên bản theo trình tự, chạy offline, là đồ án có chấm. Trên bối cảnh đó:</p>
+  <div class="assess">
+    <div class="col pro">
+      <h3><span class="ic">✓</span> Điểm mạnh</h3>
+      <ul>
+        <li><b>Dùng đúng model phù hợp nhất.</b> bge-m3 là model embedding hiện đại, hiểu tốt cả chữ Hán lẫn tiếng Việt.</li>
+        <li><b>Có sẵn thêm tín hiệu từ vựng.</b> Một lần mã hoá ra cả dense lẫn sparse, nên có ngay một cách kiểm tra chéo mà không tốn thêm bước.</li>
+        <li><b>Khai thác đặc thù tiếng Việt.</b> Đo trùng từ giữa âm Hán–Việt và bản dịch là rất đúng chỗ: tiếng Việt giữ nhiều từ gốc Hán, cặp đúng hay trùng từ như trung thần, bản triều.</li>
+        <li><b>Phòng báo động giả.</b> Chỉ gắn cờ khi cả hai tín hiệu cùng yếu, nên điểm yếu của bên này được bên kia bù lại.</li>
+        <li><b>Giữ thứ tự là đúng bản chất.</b> Bản dịch đi tuần tự theo nguyên bản, nên ràng buộc giữ thứ tự câu là hợp lý chứ không phải giả định ép.</li>
+        <li><b>Lọc rác trước khi dóng hàng.</b> Bỏ trang bìa, con dấu thư viện để không kéo lệch toàn bộ chuỗi. Chi tiết nhỏ nhưng quan trọng.</li>
+      </ul>
+    </div>
+    <div class="col con">
+      <h3><span class="ic">!</span> Điểm yếu / rủi ro</h3>
+      <ul>
+        <li><b>Chưa chấm điểm bằng con số.</b> Chưa có bộ dữ liệu dóng tay làm mẫu để đo độ chính xác. Mọi ngưỡng (0.50; 0.45; phân vị 10) đang chỉnh thủ công trên vol1, nên chưa chứng minh được bằng số là tốt.</li>
+        <li><b>Đơn vị Hán là cột, chưa là câu.</b> Ranh giới cột là theo hình ảnh chứ không theo nghĩa. Câu bắt đầu giữa cột thì không tách ra được, cách ghép nhiều cột chỉ vá tạm chứ chưa xử lý tận gốc.</li>
+        <li><b>bge-m3 với Hán cổ.</b> Model học chủ yếu chữ Hán hiện đại, nên dễ cho điểm thấp với Hán cổ. Điểm cosine vì vậy nằm sát ngưỡng và nhạy cảm.</li>
+        <li><b>Giới hạn ghép 5 cột.</b> Một câu Việt dài trải hơn 5 cột Hán thì không biểu diễn được, dễ bị bỏ trống hoặc cắt sai.</li>
+        <li><b>Lỗi OCR kéo theo.</b> Chất lượng dóng hàng phụ thuộc chất lượng OCR; cột đọc sai làm lệch cả các cột bên cạnh (bước đồng thuận giảm bớt nhưng không hết).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- RECOMMENDATIONS -->
+<section id="recs">
+  <span class="eyebrow">06 — Nên làm gì tiếp</span>
+  <h2>Để biến "hợp lý" thành "chứng minh được là tốt"</h2>
+  <div class="recs">
+    <div class="rec">
+      <div>
+        <h3>Nối bước làm sạch chữ Hán vào flow và bỏ engine spec hỏng</h3>
+        <p>Đưa code consensus (Qwen-VL trọng tài + LM hậu kiểm) vào repo, cho step4 đọc bản chữ đã sửa thay vì <span class="mono">han_sentences.jsonl</span> thô. Bỏ hẳn engine spec đang trống để gọi đúng tên kiến trúc là base + VLM + LM. Cân nhắc chỉ gọi Qwen-VL cho cột mà base có độ tin cậy thấp để giảm chi phí thay vì chạy trên mọi cột.</p>
+        <span class="why">vì hiện consensus chưa nối vào notebook, aligner vẫn ăn chữ thô</span>
+      </div>
+    </div>
+    <div class="rec">
+      <div>
+        <h3>Dựng bộ dữ liệu mẫu và chấm điểm bằng số</h3>
+        <p>Dóng tay khoảng 100–200 cặp câu và vài trăm chữ Hán làm mẫu, rồi đo độ chính xác. Việc này vừa đo được mức cải thiện thật của bước làm sạch (thay cho tập gold 9 chữ hiện tại), vừa cho phép chỉnh ngưỡng dóng hàng dựa trên dữ liệu thay vì làm thủ công.</p>
+        <span class="why">vì tập gold hiện chỉ 9 chữ và ngưỡng đang chỉnh thủ công</span>
+      </div>
+    </div>
+    <div class="rec">
+      <div>
+        <h3>Tách câu Hán theo ngữ nghĩa</h3>
+        <p>Thử khôi phục dấu câu cho phía Hán để đơn vị dóng hàng là câu chứ không phải cột. Sẽ giảm hẳn các trường hợp câu bắt đầu giữa cột mà cách ghép nhiều cột đang phải gánh.</p>
+        <span class="why">vì ranh giới cột không trùng ranh giới câu</span>
+      </div>
+    </div>
+    <div class="rec">
+      <div>
+        <h3>Nới giới hạn ghép nếu có đoạn dài</h3>
+        <p>Kiểm tra độ dài thực tế: nếu có câu Việt trải hơn 5 cột Hán, hãy nới giới hạn ghép (6 cột, 7 cột) để dóng hàng biểu diễn được những đoạn này.</p>
+        <span class="why">vì giới hạn 5 cột có thể cắt sai đoạn Hán dày đặc</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER / SOURCES -->
+<footer>
+  <div class="src">
+    <h3>Nguồn tham khảo</h3>
+    <ul>
+      <li><a href="https://huggingface.co/BAAI/bge-m3">BAAI/bge-m3 — model card (model embedding đa ngữ, dense + sparse)</a></li>
+      <li><a href="https://arxiv.org/html/2402.03216v3">BGE M3-Embedding: Multi-Lingual, Multi-Functionality, Multi-Granularity</a></li>
+      <li><a href="https://arxiv.org/abs/2504.00414">Multimodal LLMs for OCR, OCR Post-Correction, and NER in Historical Documents (hậu kiểm bằng mLLM giảm mạnh lỗi)</a></li>
+      <li><a href="https://arxiv.org/html/2509.09731v1">Benchmarking Vision-Language Models on Chinese Ancient Documents (Qwen-VL cho Hán cổ)</a></li>
+      <li><a href="https://arxiv.org/abs/2109.06264">Post-OCR Document Correction with large Ensembles of Character Sequence-to-Sequence Models (ensemble + voting)</a></li>
+      <li><a href="https://github.com/QwenLM/Qwen-VL">QwenLM/Qwen-VL — vision-language model dùng làm trọng tài OCR</a></li>
+    </ul>
+  </div>
+  <div class="end">
+    Phân tích đọc trực tiếp từ: pipeline/step4_align.py · pipeline/config.py (ALIGN, REVIEW) ·
+    notebooks/Minh_Menh_2_Han_Align_Colab.ipynb (cell 15–16). · Minh Mệnh Chính Yếu 明命政要 · track HVB.
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
