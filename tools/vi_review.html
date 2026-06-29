@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VI OCR Review — Minh Mệnh Chính Yếu</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --ink:#1c1f24; --muted:#6b7280; --line:#e4e7ec;
+    --accent:#2563eb; --warn:#b45309; --warn-bg:#fef3c7; --drop:#b91c1c; --ok:#047857;
+    --raw:#9ca3af; --hl:rgba(37,99,235,.28); --hlb:#2563eb;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       color:var(--ink);background:var(--bg)}
+  header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;align-items:center;gap:14px;padding:10px 16px;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;font-weight:600}
+  header .sp{flex:1}
+  .pill{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--muted)}
+  button,select,label.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+         border-radius:8px;padding:6px 11px;cursor:pointer}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button:disabled{opacity:.45;cursor:default}
+  input[type=file]{display:none}
+  main{display:grid;grid-template-columns:minmax(380px,46%) 1fr;gap:0;height:calc(100vh - 53px)}
+  #imgwrap{position:relative;overflow:auto;background:#33373d;display:flex;align-items:flex-start;justify-content:center}
+  #imgwrap canvas{max-width:100%;height:auto}
+  #imgempty{color:#cbd2dc;margin:auto;text-align:center;padding:24px;font-size:13px}
+  #list{overflow:auto;padding:12px 14px 80px}
+  .pagebar{display:flex;align-items:center;gap:8px;padding:4px 0 10px;position:sticky;top:0;background:var(--bg);z-index:2}
+  .pagebar b{font-size:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+  .card.sel{border-color:var(--hlb);box-shadow:0 0 0 2px var(--hl)}
+  .card.high{border-left:3px solid var(--warn)}
+  .card.drop{opacity:.5}
+  .crow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .id{font:12px ui-monospace,Menlo,monospace;color:var(--muted)}
+  .tag{font-size:11px;padding:1px 7px;border-radius:999px}
+  .tag.oov{background:var(--warn-bg);color:var(--warn)}
+  .tag.ed{background:#dbeafe;color:var(--accent)}
+  .raw{color:var(--raw);font-size:12.5px;margin:2px 0 6px;white-space:pre-wrap}
+  textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;resize:vertical;min-height:46px}
+  textarea:focus{outline:2px solid var(--hl);border-color:var(--hlb)}
+  .acts{display:flex;align-items:center;gap:6px;margin-top:6px}
+  .acts .sp{flex:1}
+  .oovtok{font:12px ui-monospace,monospace;color:var(--drop)}
+  .status-drop{color:var(--drop);font-weight:600}
+  .hint{color:var(--muted);font-size:12px}
+  #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;
+         padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;pointer-events:none}
+  #toast.show{opacity:.95}
+  kbd{background:var(--bg);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;font:12px ui-monospace,monospace}
+</style>
+</head>
+<body>
+<header>
+  <h1>VI OCR Review</h1>
+  <label class="btn">📄 vi_sentences.jsonl<input type="file" id="fSents" accept=".jsonl"></label>
+  <label class="btn">⚑ vi_review.jsonl<input type="file" id="fReview" accept=".jsonl"></label>
+  <label class="btn">▢ vi_boxes.jsonl<input type="file" id="fBoxes" accept=".jsonl"></label>
+  <label class="btn">🖼 pages_vi/<input type="file" id="fImgs" webkitdirectory multiple></label>
+  <span class="sp"></span>
+  <span class="pill" id="stat">chưa nạp</span>
+  <select id="filter" title="Lọc">
+    <option value="all">Tất cả</option>
+    <option value="high">Chỉ high_oov</option>
+    <option value="unrev">Chưa duyệt</option>
+    <option value="edited">Đã sửa</option>
+    <option value="drop">Đã bỏ</option>
+  </select>
+  <button id="reset" title="Xoá tiến trình đã lưu">↺ Reset</button>
+  <button class="primary" id="export" disabled>⬇ Export jsonl</button>
+</header>
+<main>
+  <div id="imgwrap"><div id="imgempty">Chọn thư mục <code>pages_vi/</code> để xem ảnh trang.<br>Click một câu để soi vùng tương ứng.</div><canvas id="cv" hidden></canvas></div>
+  <div id="list">
+    <div class="pagebar">
+      <button id="prev">← Trang trước</button>
+      <b id="pglabel">—</b>
+      <button id="next">Trang sau →</button>
+      <span class="sp"></span>
+      <span class="hint"><kbd>↑</kbd>/<kbd>↓</kbd> chọn · <kbd>Enter</kbd> sửa · <kbd>D</kbd> bỏ/giữ</span>
+    </div>
+    <div id="cards"></div>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s);
+const state={sents:[],review:new Map(),boxes:new Map(),imgs:new Map(),
+  vol:null,edits:{},pages:[],pi:0,sel:0,filter:"all"};
+
+function parseJSONL(txt){return txt.split(/\r?\n/).filter(l=>l.trim()).map(l=>JSON.parse(l));}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1400);}
+const LSKEY=()=>"vireview:"+(state.vol||"unknown");
+function loadEdits(){try{state.edits=JSON.parse(localStorage.getItem(LSKEY()))||{}}catch(e){state.edits={}}}
+function saveEdits(){localStorage.setItem(LSKEY(),JSON.stringify(state.edits));}
+function edit(id){return state.edits[id]||(state.edits[id]={});}
+
+function deriveVol(sents){const id=sents[0]?.id||"";return (id.split(".")[0]||"vol")+"_"+sents.length;}
+
+$("#fSents").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  state.sents=parseJSONL(await f.text());
+  state.vol=deriveVol(state.sents);
+  loadEdits();
+  state.pages=[...new Set(state.sents.map(s=>s.page))].sort((a,b)=>a-b);
+  state.pi=0;state.sel=0;
+  $("#export").disabled=false;
+  refresh();toast("Nạp "+state.sents.length+" câu · vol="+state.vol);
+};
+$("#fReview").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  state.review=new Map(parseJSONL(await f.text()).map(r=>[r.id,r]));refresh();toast("Nạp review: "+state.review.size+" mục");};
+$("#fBoxes").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+  state.boxes=new Map(parseJSONL(await f.text()).map(b=>[b.id,b]));draw();toast("Nạp "+state.boxes.size+" box");};
+$("#fImgs").onchange=e=>{state.imgs.clear();
+  for(const f of e.target.files){const m=f.name.match(/page_(\d+)\.png$/i);if(m)state.imgs.set(parseInt(m[1],10),URL.createObjectURL(f));}
+  toast("Nạp "+state.imgs.size+" ảnh trang");draw();};
+
+$("#filter").onchange=e=>{state.filter=e.target.value;refresh();};
+$("#prev").onclick=()=>{if(state.pi>0){state.pi--;state.sel=0;refresh();}};
+$("#next").onclick=()=>{if(state.pi<state.pages.length-1){state.pi++;state.sel=0;refresh();}};
+$("#reset").onclick=()=>{if(confirm("Xoá toàn bộ chỉnh sửa đã lưu của "+state.vol+"?")){state.edits={};saveEdits();refresh();}};
+$("#export").onclick=exportJSONL;
+
+function isHigh(id){return state.review.has(id);}
+function pageSents(p){return state.sents.filter(s=>s.page===p);}
+function passFilter(s){const e=state.edits[s.id]||{};
+  switch(state.filter){
+    case"high":return isHigh(s.id);
+    case"unrev":return !e.reviewed && !e.drop;
+    case"drop":return !!e.drop;
+    case"edited":return e.text!=null && e.text!==s.text;
+    default:return true;}
+}
+
+function refresh(){
+  // pick a page that has visible rows under the filter
+  if(state.filter!=="all"){
+    const has=p=>pageSents(p).some(passFilter);
+    if(!has(state.pages[state.pi])){const np=state.pages.findIndex(has);if(np>=0)state.pi=np;}
+  }
+  const p=state.pages[state.pi];
+  $("#pglabel").textContent= p!=null? "Trang "+p+"  ("+(state.pi+1)+"/"+state.pages.length+")":"—";
+  $("#prev").disabled=state.pi<=0;$("#next").disabled=state.pi>=state.pages.length-1;
+  // stats
+  const tot=state.sents.length;
+  const done=state.sents.filter(s=>{const e=state.edits[s.id]||{};return e.reviewed||e.drop;}).length;
+  const ed=state.sents.filter(s=>{const e=state.edits[s.id]||{};return e.text!=null&&e.text!==s.text;}).length;
+  $("#stat").textContent=`${done}/${tot} duyệt · ${ed} sửa · ${state.review.size} high_oov`;
+  renderCards();draw();
+}
+
+function renderCards(){
+  const wrap=$("#cards");wrap.innerHTML="";
+  const rows=pageSents(state.pages[state.pi]).filter(passFilter);
+  if(state.sel>=rows.length)state.sel=Math.max(0,rows.length-1);
+  rows.forEach((s,i)=>{
+    const e=edit(s.id);const cur=e.text!=null?e.text:s.text;const high=isHigh(s.id);
+    const c=document.createElement("div");
+    c.className="card"+(i===state.sel?" sel":"")+(high?" high":"")+(e.drop?" drop":"");
+    c.dataset.i=i;c.dataset.id=s.id;
+    const tags=[];
+    if(high){const r=state.review.get(s.id);const tk=(r&&r.oov_tokens||[]).join(" ");
+      tags.push(`<span class="tag oov">high_oov ${r?r.oov_rate:""}</span>`+(tk?` <span class="oovtok">${esc(tk)}</span>`:""));}
+    if(e.text!=null&&e.text!==s.text)tags.push('<span class="tag ed">đã sửa</span>');
+    if(e.drop)tags.push('<span class="status-drop">BỎ</span>');
+    c.innerHTML=`<div class="crow"><span class="id">${s.id}</span> ${tags.join(" ")}</div>
+      <div class="raw" title="OCR gốc (raw_text)">${esc(s.raw_text??s.text)}</div>
+      <textarea spellcheck="false">${esc(cur)}</textarea>
+      <div class="acts"><span class="hint">${cur.length} ký tự</span><span class="sp"></span>
+        <button class="dropbtn">${e.drop?"↩ Giữ lại":"🗑 Bỏ câu"}</button></div>`;
+    const ta=c.querySelector("textarea");
+    ta.oninput=()=>{e.text=ta.value;e.reviewed=true;saveEdits();
+      c.querySelector(".hint").textContent=ta.value.length+" ký tự";
+      if(!c.querySelector(".tag.ed")&&ta.value!==s.text){refresh();}};
+    ta.onfocus=()=>{select(i);};
+    c.querySelector(".dropbtn").onclick=ev=>{ev.stopPropagation();e.drop=!e.drop;e.reviewed=true;saveEdits();refresh();};
+    c.onclick=()=>select(i);
+    wrap.appendChild(c);
+  });
+  if(!rows.length)wrap.innerHTML='<p class="hint">Không có câu nào khớp bộ lọc trên trang này.</p>';
+}
+
+function select(i){state.sel=i;document.querySelectorAll(".card").forEach(c=>c.classList.toggle("sel",+c.dataset.i===i));draw();}
+
+function curSent(){const rows=pageSents(state.pages[state.pi]).filter(passFilter);return rows[state.sel];}
+function draw(){
+  const cv=$("#cv"),empty=$("#imgempty");const p=state.pages[state.pi];
+  const url=state.imgs.get(p);
+  if(!url){cv.hidden=true;empty.hidden=false;return;}
+  empty.hidden=true;cv.hidden=false;
+  const img=new Image();img.onload=()=>{
+    cv.width=img.naturalWidth;cv.height=img.naturalHeight;
+    const g=cv.getContext("2d");g.drawImage(img,0,0);
+    const s=curSent();if(!s||!state.boxes.size)return;
+    g.lineWidth=Math.max(3,img.naturalWidth/400);g.strokeStyle="#2563eb";g.fillStyle="rgba(37,99,235,.16)";
+    for(const bid of (s.box_ids||[])){const b=state.boxes.get(bid);if(!b||!b.bbox)continue;
+      const[x0,y0,x1,y1]=b.bbox;g.fillRect(x0,y0,x1-x0,y1-y0);g.strokeRect(x0,y0,x1-x0,y1-y0);}
+    // scroll image so first box is visible
+    const first=state.boxes.get((s.box_ids||[])[0]);
+    if(first&&first.bbox){const wrap=$("#imgwrap");const scale=cv.clientWidth/cv.width;
+      wrap.scrollTop=Math.max(0,first.bbox[1]*scale-120);}
+  };img.src=url;
+}
+
+function esc(t){return (t??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+document.addEventListener("keydown",e=>{
+  if(["TEXTAREA","SELECT","INPUT"].includes(e.target.tagName)){
+    if(e.key==="Escape")e.target.blur();return;}
+  const rows=pageSents(state.pages[state.pi]).filter(passFilter);
+  if(e.key==="ArrowDown"){e.preventDefault();select(Math.min(state.sel+1,rows.length-1));scrollSel();}
+  else if(e.key==="ArrowUp"){e.preventDefault();select(Math.max(state.sel-1,0));scrollSel();}
+  else if(e.key==="Enter"){e.preventDefault();const c=document.querySelector(".card.sel textarea");if(c)c.focus();}
+  else if(e.key.toLowerCase()==="d"){const s=curSent();if(s){const ed=edit(s.id);ed.drop=!ed.drop;ed.reviewed=true;saveEdits();refresh();}}
+  else if(e.key==="ArrowRight")$("#next").click();
+  else if(e.key==="ArrowLeft")$("#prev").click();
+});
+function scrollSel(){const c=document.querySelector(".card.sel");if(c)c.scrollIntoView({block:"nearest"});}
+
+function exportJSONL(){
+  const out=[];let dropped=0,edited=0;
+  for(const s of state.sents){
+    const e=state.edits[s.id]||{};
+    if(e.drop){dropped++;continue;}
+    const text=e.text!=null?e.text:s.text;
+    if(text!==s.text)edited++;
+    out.push({...s,text,raw_text:s.raw_text??s.text,reviewed:!!e.reviewed});
+  }
+  const blob=new Blob([out.map(o=>JSON.stringify(o)).join("\n")+"\n"],{type:"application/jsonl"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="vi_sentences.jsonl";a.click();
+  toast(`Export ${out.length} câu (${edited} sửa, ${dropped} bỏ)`);
+}
+</script>
+</body>
+</html>

@@ -21,7 +21,8 @@ import argparse
 import re
 
 from . import config
-from .common import get_logger, read_jsonl, write_jsonl
+from .common import get_logger, load_vi_vocab, oov_rate, read_jsonl, write_jsonl
+from .reviews import build_oov_vocab, build_vi_review
 
 log = get_logger("clean_vi")
 
@@ -87,6 +88,7 @@ def run(vol: str, path=None) -> dict:
     if not path.exists():
         raise FileNotFoundError(path)
 
+    vocab = load_vi_vocab()
     rows = list(read_jsonl(path))
     kept: list[dict] = []
     changed, dropped = [], []
@@ -103,9 +105,17 @@ def run(vol: str, path=None) -> dict:
         if after != before:
             changed.append({"id": row.get("id"), "before": before, "after": after})
             row["text"] = after
+            row["n_tokens"], oov = oov_rate(after, vocab)   # keep QC signal in sync
+            row["oov_rate"] = round(oov, 3)
         kept.append(row)
 
     write_jsonl(path, kept)
+
+    # VI review queue — built here (the last stage to touch vi_sentences.jsonl) so
+    # it reflects the FINAL corpus. Moved out of step 4 so the Vietnamese side can
+    # be hand-reviewed right after P1, before any Hán OCR / alignment runs.
+    write_jsonl(out_dir / "vi_review.jsonl", build_vi_review(kept, vocab, config.REVIEW))
+    write_jsonl(out_dir / "oov_vocab.jsonl", build_oov_vocab(kept, vocab))
     report = {
         "vol": vol,
         "rows_in": len(rows),

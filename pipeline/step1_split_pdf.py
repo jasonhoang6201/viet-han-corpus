@@ -123,6 +123,62 @@ def find_vi_body_start(doc: "fitz.Document", vi_pages: list[int], cfg: dict) -> 
     return None
 
 
+def _back_matter_signals(page: "fitz.Page", cfg: dict) -> tuple[bool, bool]:
+    """(is_anchor, is_body) for one VI page, read from the embedded text layer.
+
+    is_anchor: the page is an index / ToC / bibliography (a back-matter marker).
+    is_body  : the page is running translation prose (a leaf-marked page, or a
+               dense page with few short lines that is not itself an anchor).
+    Decided on the embedded layer so the trim happens BEFORE OCR.
+    """
+    text = page.get_text()
+    lines = [l for l in text.splitlines() if l.strip()]
+    n = max(len(lines), 1)
+    idx_frac = sum(1 for l in lines if re.search(cfg["index_line_regex"], l)) / n
+    short_frac = sum(1 for l in lines
+                     if len(l.split()) <= cfg["short_line_max_tokens"]) / n
+    # "Mục-Lục" only as its own heading line, not buried in body prose.
+    toc_head = any(re.search(r"m[ụu]c\s*[-\s]*l[ụu]c", l, re.I) and len(l.split()) <= 3
+                   for l in lines)
+    is_anchor = (idx_frac >= cfg["index_line_frac"]
+                 or bool(re.search(cfg["back_matter_anchor_regex"], text, re.I))
+                 or toc_head)
+    has_leaf = bool(re.search(cfg["leaf_marker_regex"], text))
+    # Density test rejects sparse index/ToC *header* pages (e.g. a garbled
+    # "Biểu kê đề mục…" whose diacritics defeat keyword matching) without
+    # dropping a short final body page (those still carry a leaf marker).
+    is_body = has_leaf or (
+        len(lines) >= cfg["min_body_lines"]
+        and short_frac < cfg["short_body_frac"]
+        and idx_frac < 0.2
+        and not is_anchor)
+    return is_anchor, is_body
+
+
+def find_vi_body_end(doc: "fitz.Document", vi_pages: list[int], cfg: dict) -> int | None:
+    """Last VI page of the translation body; trailing back-matter is trimmed.
+
+    Mirror of find_vi_body_start. Walks to the last running-body page; everything
+    after it (ToC, name/place index, publisher catalogue, bibliography) is dropped
+    — but only when that trailing block carries a back-matter anchor, so a volume
+    that simply ends on body is never trimmed. Returns the page index, or None to
+    keep all VI pages.
+    """
+    if not cfg.get("trim_back_matter", True) or not vi_pages:
+        return None
+    sig = {p: _back_matter_signals(doc[p], cfg) for p in vi_pages}
+    body_end = None
+    for p in reversed(vi_pages):
+        if sig[p][1]:
+            body_end = p
+            break
+    if body_end is None or body_end == vi_pages[-1]:
+        return None
+    if not any(sig[p][0] for p in vi_pages if p > body_end):   # guard: real back-matter only
+        return None
+    return body_end
+
+
 def split_volume(vol: str) -> dict:
     cfg = config.SPLIT
     pdf_path = config.DATA_DIR / f"{vol}.pdf"
@@ -173,6 +229,16 @@ def split_volume(vol: str) -> dict:
     else:
         log.warning("[%s] no VI body-start marker found — keeping all VI pages", vol)
 
+    # Drop trailing back-matter (ToC / index / catalogue / bibliography) that has
+    # no Hán counterpart and floods the VI review queue with false high-OOV flags.
+    vi_body_end = find_vi_body_end(doc, vi_pages, cfg)
+    vi_back_matter = []
+    if vi_body_end is not None:
+        vi_back_matter = [p for p in vi_pages if p > vi_body_end]
+        vi_pages = [p for p in vi_pages if p <= vi_body_end]
+        log.info("[%s] VI body ends at p%d | dropped %d back-matter page(s): %s",
+                 vol, vi_body_end, len(vi_back_matter), vi_back_matter)
+
     log.info("[%s] %d pages | Hán starts at p%d | VI=%d HAN=%d (blanks dropped)",
              vol, len(doc), han_start, len(vi_pages), len(han_pages))
 
@@ -187,6 +253,8 @@ def split_volume(vol: str) -> dict:
         "han_start": han_start,
         "vi_body_start": vi_body_start,
         "vi_front_matter": vi_front_matter,
+        "vi_body_end": vi_body_end,
+        "vi_back_matter": vi_back_matter,
         "config": cfg,
         "vi_pages": vi_pages,
         "han_pages": han_pages,

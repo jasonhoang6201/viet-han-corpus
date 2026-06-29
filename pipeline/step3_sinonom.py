@@ -37,7 +37,7 @@ from pathlib import Path
 
 from . import config
 from .common import (cjk_chars, get_logger, is_cjk, make_id, paddle_device,
-                     progress, read_json, write_jsonl)
+                     progress, read_jsonl, read_json, write_jsonl)
 
 log = get_logger("step3")
 
@@ -325,14 +325,45 @@ def run(vol: str, chapter: int = 1, limit: int | None = None) -> tuple[Path, Pat
     return box_path, sent_path
 
 
+def review(vol: str) -> Path:
+    """Hán review queue — char validation (S1∩S2) + low-conf boxes.
+
+    Moved out of step 4 so P3 is alignment-only. Run AFTER the Qwen consensus
+    (step3b) has rewritten han_boxes.jsonl, so it validates the corrected chars.
+    Reads han_boxes.jsonl; writes char_validation.jsonl + han_review.jsonl.
+    """
+    from .reviews import CharValidator, build_review, validate_boxes
+
+    out_dir = config.OUT_DIR / vol
+    boxes = list(read_jsonl(out_dir / "han_boxes.jsonl"))
+    char_rows = validate_boxes(boxes, CharValidator())
+    write_jsonl(out_dir / "char_validation.jsonl", char_rows)
+    n_red = sum(1 for r in char_rows if r["status"] == "RED")
+    log.info("[%s] char validation: %d chars, %d RED", vol, len(char_rows), n_red)
+
+    review_rows = build_review(boxes, char_rows, config.REVIEW)
+    rev_path = out_dir / "han_review.jsonl"
+    write_jsonl(rev_path, review_rows)
+    n_low = sum(1 for r in review_rows if r["reason"] == "low_conf")
+    log.info("[%s] Hán review: %d items (%d RED chars + %d low-conf boxes) -> %s",
+             vol, len(review_rows), n_red, n_low, rev_path.name)
+    return rev_path
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--vol", default="vol1")
     ap.add_argument("--chapter", type=int, default=1)
     ap.add_argument("--limit", type=int, default=None,
                     help="OCR only the first N Hán pages (quick smoke test)")
+    ap.add_argument("--review", action="store_true",
+                    help="skip OCR; build char_validation + han_review from existing han_boxes "
+                         "(run after the Qwen consensus step)")
     args = ap.parse_args()
-    run(args.vol, args.chapter, limit=args.limit)
+    if args.review:
+        review(args.vol)
+    else:
+        run(args.vol, args.chapter, limit=args.limit)
 
 
 if __name__ == "__main__":

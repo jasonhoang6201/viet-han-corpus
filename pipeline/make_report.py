@@ -76,7 +76,10 @@ def main():
     hs = load(od / "han_sentences.jsonl")
     vs = load(od / "vi_sentences.jsonl")
     al = load(od / "alignment.jsonl")
-    rv = load(od / "review.jsonl")
+    # Review queues split by stage: vi_review.jsonl (P1) + han_review.jsonl (P2).
+    # Fall back to the legacy combined review.jsonl if present.
+    rv = (load(od / "vi_review.jsonl") + load(od / "han_review.jsonl")
+          or load(od / "review.jsonl"))
     n_pages = len(list((od / "pages_han").glob("*.png")))
 
     # ---- stats ----

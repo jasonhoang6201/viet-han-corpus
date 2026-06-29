@@ -57,7 +57,7 @@ pipeline/
   vi_ocr.py            VI image OCR; crops the top running-head/page-number band
   step3_sinonom.py     preprocess → PaddleOCR detect + vertical recognise → segment
   step4_align.py       S1∩S2 char validation + review/OOV lanes + Excel
-                       (sentence alignment runs in notebook ②, bge-m3)
+                       (sentence alignment runs in notebook ③, bge-m3)
 assets/
   dicts/   Viet74K.txt, hanviet.csv, QuocNgu_SinoNom.dic (S2), SinoNom_Similar.dic (S1)
   raw/     Unihan_Readings.txt, Unihan_Variants.txt
@@ -107,7 +107,11 @@ Output workbook: `out/vol1/HVH_001_alignment.xlsx` with sheets
 
 ## Colab
 
-Current flow is split across two notebooks: `Minh_Menh_1_VI_OCR_Surya_Colab.ipynb`
-(VI side, Surya) hands off a zip to `Minh_Menh_2_Han_Align_Colab.ipynb` (Hán
-PaddleOCR + bge-m3 alignment). Run on a Colab Pro runtime (GPU recommended for
-step 3/4). `Minh_Menh_Pipeline_Colab.ipynb` is the older all-in-one (deprecated).
+Current flow is split across three notebooks, each handing off one zip per volume:
+`Minh_Menh_1_VI_OCR_Surya_Colab.ipynb` (VI side, Surya → `out_zips/<vol>.zip`) →
+`Minh_Menh_2_Han_OCR_Colab.ipynb` (Hán PaddleOCR + Qwen-VL consensus →
+`ocr_zips/<vol>.zip`) → `Minh_Menh_3_Align_Colab.ipynb` (bge-m3 sentence alignment
+of the VI + corrected Hán → `output/<vol>.zip`). They are split because Surya, the
+paddle/qwen OCR stack, and bge-m3 conflict over Pillow, so each runs in its own
+runtime. Run on a Colab Pro runtime (GPU recommended). `Minh_Menh_Pipeline_Colab.ipynb`
+is the older all-in-one (deprecated).

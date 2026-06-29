@@ -408,6 +408,8 @@ def run(vol: str, chapter: int = 1) -> Path:
     out_path = out_dir / "vi_sentences.jsonl"
     n = write_jsonl(out_path, rows)
     log.info("[%s] wrote %d Vietnamese sentences -> %s", vol, n, out_path.name)
+    # The VI review queue (vi_review.jsonl / oov_vocab.jsonl) is built by clean_vi,
+    # the last stage that edits vi_sentences.jsonl, so it reflects the final corpus.
     return out_path
 
 

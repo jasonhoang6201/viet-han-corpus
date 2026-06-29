@@ -87,6 +87,33 @@ SPLIT = dict(
     # chapter / reign even when short (vol6 chapter-opening is ~100 tokens).
     body_keyword_regex=r"QUY[ỂỀE]N|M[ỆE]NH",
     halftitle_regex=r"d[ịi][cz]h\s+c[ủuú]a",   # "(bản) dịch của <translator>"
+
+    # Back-matter trim — symmetric to the front-matter trim above. Some volumes
+    # append a table-of-contents, a name/place index, and a publisher's book
+    # catalogue / bibliography AFTER the body. These have no Hán counterpart and
+    # are full of proper nouns / foreign titles, so they bury the VI review queue
+    # in false high-OOV flags. vi_body_end = last running-body page; everything
+    # after it is dropped, but ONLY when that trailing block carries a back-matter
+    # anchor (so volumes that end on body are never trimmed). Detection runs on
+    # the embedded text layer (pre-OCR). Validated on vol1-6: vol3 (drop ≥p295),
+    # vol5 (≥p215), vol6 (≥p273) trim; vol1/2/4 keep all. See find_vi_body_end.
+    trim_back_matter=True,
+    index_line_regex=r"[^\s:：]+\s*[:：]\s*\d",   # "<name/title> : <page no.>"
+    index_line_frac=0.5,        # page is an index if >= this frac of lines match
+    short_line_max_tokens=4,    # a "short line" (index / ToC entries are short)
+    short_body_frac=0.35,       # >= this frac short lines => not running prose
+    min_body_lines=10,          # a body page has at least this many text lines
+    # Section headers / phrases that only appear in back-matter (OCR-tolerant).
+    back_matter_anchor_regex=(
+        r"TH[ƯU]\s*[-–]?\s*M[ỤU]C"                       # THƯ MỤC (bibliography)
+        r"|NGUYÊN[-\s]*TÁC"                              # Nguyên-tác
+        r"|T[ỦU][-\s]*SÁCH"                              # Tủ-sách (catalogue)
+        r"|B[ẢA]N\s*D[ỊI]CH\s*C[ỦU]A"                    # Bản dịch của
+        r"|BI[ỂẾEỀ]U\s*K[ÊẾE]"                           # Biểu kê (index header)
+        r"|B[ẢA]NG\s*TRA"                                # Bảng tra
+        r"|H[ẾEỀ]T\s*T[ẬAẤ]P"                            # HẾT TẬP (volume end)
+        r"|\b\d{1,2}\s*[.,]?\s*[a-z]?\s*/\s*[A-Z]{2}\b"  # catalogue codes 12,a/CV 01/KV
+    ),
 )
 
 # --------------------------------------------------------------------------- #
@@ -224,7 +251,8 @@ CONSENSUS = dict(
 )
 
 # --------------------------------------------------------------------------- #
-# Review queue — flag chars a human should check (written to out/<vol>/review.jsonl)
+# Review queues — flag items a human should check. Split by stage:
+#   vi_review.jsonl (high_oov, P1 step 2) + han_review.jsonl (RED + low_conf, P2 step 3).
 # --------------------------------------------------------------------------- #
 REVIEW = dict(
     # A box whose OCR confidence is below this is flagged as "đọc mờ" (low_conf).
