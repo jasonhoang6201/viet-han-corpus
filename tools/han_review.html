@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VI OCR Review — Minh Mệnh Chính Yếu</title>
+<title>HÁN OCR Review — Minh Mệnh Chính Yếu</title>
 <style>
   :root{
     --bg:#f6f7f9; --panel:#fff; --ink:#1c1f24; --muted:#6b7280; --line:#e4e7ec;
     --accent:#2563eb; --warn:#b45309; --warn-bg:#fef3c7; --drop:#b91c1c; --ok:#047857;
-    --raw:#9ca3af; --hl:rgba(37,99,235,.28); --hlb:#2563eb;
+    --raw:#9ca3af; --hl:rgba(37,99,235,.28); --hlb:#2563eb; --red:#dc2626; --red-bg:#fee2e2;
   }
   *{box-sizing:border-box}
   body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
@@ -32,22 +32,29 @@
            position:sticky;top:0;background:var(--bg);z-index:2;border-bottom:1px solid var(--line)}
   .pagebar b{font-size:14px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;scroll-margin-top:60px}
-  .card.oov{background:#fffaf0}
-  .card.high{background:#fdecb8}
+  .card.low{background:#fffaf0}
+  .card.red{background:#fdecea}
   .card.sel{border-color:var(--hlb);box-shadow:0 0 0 2px var(--hl);border-left:5px solid var(--hlb)}
   .card.drop{opacity:1;background:#fde8e8;border-color:var(--drop);border-left:5px solid var(--drop)}
   .card.drop textarea{color:#9b2c2c;text-decoration:line-through;background:#fbd5d5;border-color:#f3a5a5}
-  .crow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .crow{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
   .id{font:12px ui-monospace,Menlo,monospace;color:var(--muted)}
   .tag{font-size:11px;padding:1px 7px;border-radius:999px}
-  .tag.oov{background:var(--warn-bg);color:var(--warn)}
+  .tag.low{background:var(--warn-bg);color:var(--warn)}
+  .tag.red{background:var(--red-bg);color:var(--red)}
   .tag.ed{background:#dbeafe;color:var(--accent)}
-  .raw{color:var(--raw);font-size:12.5px;margin:2px 0 6px;white-space:pre-wrap}
-  textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;resize:vertical;min-height:70px}
+  .roma{color:var(--raw);font-size:12.5px;margin:2px 0 6px;white-space:pre-wrap}
+  .flags{margin:2px 0 6px;font-size:12.5px}
+  .flag{display:flex;gap:6px;align-items:baseline;margin:2px 0;padding:3px 7px;border-radius:6px;background:var(--bg)}
+  .flag.red{background:var(--red-bg)}
+  .flag .han{font:16px/1 "Noto Serif CJK SC","Songti SC","SimSun",serif}
+  .flag .ctx{color:var(--muted)}
+  .flag .ctx mark{background:var(--hl);color:var(--ink);padding:0 1px;border-radius:3px}
+  textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;
+           font:20px/1.7 "Noto Serif CJK SC","Songti SC","SimSun",serif;resize:vertical;min-height:86px}
   textarea:focus{outline:2px solid var(--ok);border-color:var(--ok);background:#f0fdf9}
   .acts{display:flex;align-items:center;gap:6px;margin-top:6px}
   .acts .sp{flex:1}
-  .oovtok{font:12px ui-monospace,monospace;color:var(--drop)}
   .status-drop{color:var(--drop);font-weight:600}
   .hint{color:var(--muted);font-size:12px}
   #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;
@@ -58,14 +65,14 @@
 </head>
 <body>
 <header>
-  <h1>VI OCR Review</h1>
-  <label class="btn primary" title="Nạp cả folder vol — tự map vi_sentences/vi_review/vi_boxes/pages_vi, thiếu file nào bỏ qua">📁 Nạp folder vol<input type="file" id="fFolder" webkitdirectory multiple></label>
+  <h1>HÁN OCR Review</h1>
+  <label class="btn primary" title="Nạp cả folder vol — tự map han_sentences/han_review/han_boxes/pages_han, thiếu file nào bỏ qua">📁 Nạp folder vol<input type="file" id="fFolder" webkitdirectory multiple></label>
   <span class="sp"></span>
   <span class="pill" id="stat">chưa nạp</span>
   <select id="filter" title="Lọc">
     <option value="all">Tất cả</option>
-    <option value="high">Chỉ high_oov</option>
-    <option value="oov">Có OOV</option>
+    <option value="red">Chỉ chữ RED</option>
+    <option value="flag">Có cờ (RED/low_conf)</option>
     <option value="unrev">Chưa duyệt</option>
     <option value="edited">Đã sửa</option>
     <option value="drop">Đã bỏ</option>
@@ -74,7 +81,7 @@
   <button class="primary" id="export" disabled>⬇ Export jsonl</button>
 </header>
 <main>
-  <div id="imgwrap"><div id="imgempty">Chọn thư mục <code>pages_vi/</code> để xem ảnh trang.<br>Click một câu để soi vùng tương ứng.</div><canvas id="cv" hidden></canvas></div>
+  <div id="imgwrap"><div id="imgempty">Chọn thư mục <code>pages_han/</code> để xem ảnh trang.<br>Click một câu để soi vùng tương ứng.</div><canvas id="cv" hidden></canvas></div>
   <div id="list">
     <div class="pagebar">
       <button id="prev">← Trang trước</button>
@@ -113,18 +120,21 @@ function loadImgFiles(files){state.imgs.clear();let n=0;
   for(const f of files){const m=f.name.match(/page_(\d+)\.png$/i);if(m){state.imgs.set(parseInt(m[1],10),URL.createObjectURL(f));n++;}}
   return n;}
 
+// review keyed by box id → may have several entries (char RED + box low_conf)
+function buildReview(rows){const m=new Map();for(const r of rows){if(!m.has(r.id))m.set(r.id,[]);m.get(r.id).push(r);}return m;}
+
 // One folder → auto-map by conventional filename; omit whatever's missing.
 $("#fFolder").onchange=async e=>{
   const files=[...e.target.files];if(!files.length)return;
   const base=f=>(f.webkitRelativePath||f.name).split("/").pop();
-  const fSents=files.find(f=>base(f)==="vi_sentences.jsonl");
-  const fReview=files.find(f=>base(f)==="vi_review.jsonl");
-  const fBoxes=files.find(f=>base(f)==="vi_boxes.jsonl");
-  const fImgs=files.filter(f=>/(^|\/)pages_vi\//i.test(f.webkitRelativePath||"")&&/page_\d+\.png$/i.test(base(f)));
-  if(!fSents){toast("⚠ Folder thiếu vi_sentences.jsonl");return;}
+  const fSents=files.find(f=>base(f)==="han_sentences.jsonl");
+  const fReview=files.find(f=>base(f)==="han_review.jsonl");
+  const fBoxes=files.find(f=>base(f)==="han_boxes.jsonl");
+  const fImgs=files.filter(f=>/(^|\/)pages_han\//i.test(f.webkitRelativePath||"")&&/page_\d+\.png$/i.test(base(f)));
+  if(!fSents){toast("⚠ Folder thiếu han_sentences.jsonl");return;}
   await loadSents(fSents);
   const got=["✓ "+state.sents.length+" câu"], miss=[];
-  if(fReview){state.review=new Map(parseJSONL(await fReview.text()).map(r=>[r.id,r]));got.push("✓ "+state.review.size+" review");}else{state.review=new Map();miss.push("review");}
+  if(fReview){state.review=buildReview(parseJSONL(await fReview.text()));got.push("✓ "+state.review.size+" box cờ");}else{state.review=new Map();miss.push("review");}
   if(fBoxes){state.boxes=new Map(parseJSONL(await fBoxes.text()).map(b=>[b.id,b]));got.push("✓ "+state.boxes.size+" box");}else{state.boxes=new Map();miss.push("boxes");}
   if(fImgs.length){got.push("✓ "+loadImgFiles(fImgs)+" ảnh");}else{state.imgs.clear();miss.push("ảnh");}
   refresh();
@@ -137,15 +147,18 @@ $("#next").onclick=()=>{if(state.pi<state.pages.length-1){state.pi++;state.sel=0
 $("#reset").onclick=()=>{if(confirm("Xoá toàn bộ chỉnh sửa đã lưu của "+state.vol+"?")){state.edits={};saveEdits();refresh();}};
 $("#export").onclick=exportJSONL;
 
-function isHigh(id){return state.review.has(id);}
+// review entries covering a sentence's boxes
+function sentFlags(s){const out=[];for(const bid of (s.box_ids||[])){const rs=state.review.get(bid);if(rs)for(const r of rs)out.push(r);}return out;}
+function hasRed(s){return sentFlags(s).some(r=>r.level==="char");}
+function hasFlag(s){return sentFlags(s).length>0;}
 function pageSents(p){return state.sents.filter(s=>s.page===p);}
 function passFilter(s){const e=state.edits[s.id]||{};
   switch(state.filter){
-    case"high":return isHigh(s.id);
-    case"oov":return isHigh(s.id)||((s.oov_rate||0)>0);
+    case"red":return hasRed(s);
+    case"flag":return hasFlag(s);
     case"unrev":return !e.reviewed && !e.drop;
     case"drop":return !!e.drop;
-    case"edited":return e.text!=null && e.text!==s.text;
+    case"edited":return e.text!=null && e.text!==s.sinonom;
     default:return true;}
 }
 
@@ -165,36 +178,47 @@ function refresh(){
 function updateStats(){
   const tot=state.sents.length;
   const done=state.sents.filter(s=>{const e=state.edits[s.id]||{};return e.reviewed||e.drop;}).length;
-  const ed=state.sents.filter(s=>{const e=state.edits[s.id]||{};return e.text!=null&&e.text!==s.text;}).length;
-  $("#stat").textContent=`${done}/${tot} duyệt · ${ed} sửa · ${state.review.size} high_oov`;
+  const ed=state.sents.filter(s=>{const e=state.edits[s.id]||{};return e.text!=null&&e.text!==s.sinonom;}).length;
+  const red=state.sents.filter(hasRed).length;
+  $("#stat").textContent=`${done}/${tot} duyệt · ${ed} sửa · ${red} câu RED`;
 }
+
+function ctxHTML(ctx){return esc(ctx).replace(/【(.*?)】/g,'<mark>$1</mark>');}
 
 function renderCards(){
   const wrap=$("#cards");wrap.innerHTML="";
   const rows=pageSents(state.pages[state.pi]).filter(passFilter);
   if(state.sel>=rows.length)state.sel=Math.max(0,rows.length-1);
   rows.forEach((s,i)=>{
-    const e=edit(s.id);const cur=e.text!=null?e.text:s.text;const high=isHigh(s.id);
-    const hasOov=high||((s.oov_rate||0)>0);
+    const e=edit(s.id);const cur=e.text!=null?e.text:s.sinonom;
+    const flags=sentFlags(s);const red=flags.some(r=>r.level==="char");const low=flags.some(r=>r.level==="box");
     const c=document.createElement("div");
-    c.className="card"+(i===state.sel?" sel":"")+(high?" high":(hasOov?" oov":""))+(e.drop?" drop":"");
+    c.className="card"+(i===state.sel?" sel":"")+(red?" red":(low?" low":""))+(e.drop?" drop":"");
     c.dataset.i=i;c.dataset.id=s.id;
     const tags=[];
-    if(high){const r=state.review.get(s.id);const tk=(r&&r.oov_tokens||[]).join(" ");
-      tags.push(`<span class="tag oov">high_oov ${r?r.oov_rate:""}</span>`+(tk?` <span class="oovtok">${esc(tk)}</span>`:""));}
-    else if((s.oov_rate||0)>0){tags.push(`<span class="tag oov">oov ${s.oov_rate}</span>`);}
-    if(e.text!=null&&e.text!==s.text)tags.push('<span class="tag ed">đã sửa</span>');
+    const nred=flags.filter(r=>r.level==="char").length, nlow=flags.filter(r=>r.level==="box").length;
+    if(nred)tags.push(`<span class="tag red">RED ×${nred}</span>`);
+    if(nlow)tags.push(`<span class="tag low">low_conf ×${nlow}</span>`);
+    if(e.text!=null&&e.text!==s.sinonom)tags.push('<span class="tag ed">đã sửa</span>');
     if(e.drop)tags.push('<span class="status-drop">BỎ</span>');
+    // flag detail lines
+    const flagRows=flags.map(r=>{
+      const kind=r.level==="char"?"red":"";
+      const ctx=r.context&&r.context!==r.sn?` <span class="ctx">${ctxHTML(r.context)}</span>`:"";
+      return `<div class="flag ${kind}"><span class="han">${esc(r.sn||"?")}</span>`+
+        `<span class="hint">${r.level==="char"?"RED":"low_conf"} · ${r.qn||"?"} · conf ${r.conf??"?"}${r.char_pos!=null?" · pos "+r.char_pos:""}</span>${ctx}</div>`;
+    }).join("");
     c.innerHTML=`<div class="crow"><span class="id">${s.id}</span> ${tags.join(" ")}</div>
-      <div class="raw" title="OCR gốc (raw_text)">${esc(s.raw_text??s.text)}</div>
-      <textarea spellcheck="false">${esc(cur)}</textarea>
-      <div class="acts"><span class="hint">${cur.length} ký tự</span><span class="sp"></span>
+      <div class="roma" title="Âm Hán Việt (tham chiếu)">${esc(s.am_han_viet||"")}</div>
+      ${flagRows?`<div class="flags">${flagRows}</div>`:""}
+      <textarea spellcheck="false" lang="zh">${esc(cur)}</textarea>
+      <div class="acts"><span class="hint">${[...cur].length} chữ</span><span class="sp"></span>
         <button class="dropbtn">${e.drop?"↩ Giữ lại":"🗑 Bỏ câu"}</button></div>`;
     const ta=c.querySelector("textarea");
     ta.oninput=()=>{e.text=ta.value;e.reviewed=true;saveEdits();
-      c.querySelector(".hint").textContent=ta.value.length+" ký tự";
+      c.querySelector(".hint").textContent=[...ta.value].length+" chữ";
       // toggle "đã sửa" tag inline — no full rebuild, keeps focus + scroll
-      const changed=ta.value!==s.text;let et=c.querySelector(".tag.ed");
+      const changed=ta.value!==s.sinonom;let et=c.querySelector(".tag.ed");
       if(changed&&!et){et=document.createElement("span");et.className="tag ed";et.textContent="đã sửa";c.querySelector(".crow").appendChild(et);}
       else if(!changed&&et)et.remove();
       updateStats();};
@@ -218,13 +242,16 @@ function draw(){
     cv.width=img.naturalWidth;cv.height=img.naturalHeight;
     const g=cv.getContext("2d");g.drawImage(img,0,0);
     const s=curSent();if(!s||!state.boxes.size)return;
-    g.lineWidth=Math.max(3,img.naturalWidth/400);g.strokeStyle="#2563eb";g.fillStyle="rgba(37,99,235,.16)";
-    for(const bid of (s.box_ids||[])){const b=state.boxes.get(bid);if(!b||!b.bbox)continue;
-      const[x0,y0,x1,y1]=b.bbox;g.fillRect(x0,y0,x1-x0,y1-y0);g.strokeRect(x0,y0,x1-x0,y1-y0);}
+    g.lineWidth=Math.max(3,img.naturalWidth/400);
+    let firstBox=null;
+    for(const bid of (s.box_ids||[])){const b=state.boxes.get(bid);if(!b||!b.bbox||b.page!==p)continue;
+      const flagged=state.review.has(bid);
+      g.strokeStyle=flagged?"#dc2626":"#2563eb";g.fillStyle=flagged?"rgba(220,38,38,.16)":"rgba(37,99,235,.14)";
+      const[x0,y0,x1,y1]=b.bbox;g.fillRect(x0,y0,x1-x0,y1-y0);g.strokeRect(x0,y0,x1-x0,y1-y0);
+      if(!firstBox)firstBox=b;}
     // scroll image so first box is visible
-    const first=state.boxes.get((s.box_ids||[])[0]);
-    if(first&&first.bbox){const wrap=$("#imgwrap");const scale=cv.clientWidth/cv.width;
-      wrap.scrollTop=Math.max(0,first.bbox[1]*scale-120);}
+    if(firstBox&&firstBox.bbox){const wrap=$("#imgwrap");const scale=cv.clientWidth/cv.width;
+      wrap.scrollTop=Math.max(0,firstBox.bbox[1]*scale-120);}
   };img.src=url;
 }
 
@@ -248,13 +275,13 @@ function exportJSONL(){
   for(const s of state.sents){
     const e=state.edits[s.id]||{};
     if(e.drop){dropped++;continue;}
-    const text=e.text!=null?e.text:s.text;
-    if(text!==s.text)edited++;
-    out.push({...s,text,raw_text:s.raw_text??s.text,reviewed:!!e.reviewed});
+    const sinonom=e.text!=null?e.text:s.sinonom;
+    if(sinonom!==s.sinonom)edited++;
+    out.push({...s,sinonom,reviewed:!!e.reviewed});
   }
   const blob=new Blob([out.map(o=>JSON.stringify(o)).join("\n")+"\n"],{type:"application/jsonl"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);
-  a.download="vi_sentences.jsonl";a.click();
+  a.download="han_sentences.jsonl";a.click();
   toast(`Export ${out.length} câu (${edited} sửa, ${dropped} bỏ)`);
 }
 </script>
