@@ -7,20 +7,17 @@ alignment-only):
       high_oov — a Vietnamese sentence whose out-of-vocabulary token rate is high
       (the VI OCR likely read non-words). The only quality signal on the VI side,
       where there is no model confidence.
-  * Hán lane (P2, step 3, AFTER consensus): `char_validation.jsonl` + `han_review.jsonl`
-      RED      — a char's reading is consistent with no valid SinoNom char.
-      low_conf — the whole box was read with low OCR confidence.
-
-A confidence threshold alone misses RED: OCR is often *confidently* wrong, so the
-dictionary cross-check (S1∩S2) is a separate lane. Every review row carries empty
-`fix_type` / `correct` fields for the reviewer to fill in.
+  * Hán lane (P2, step 3, AFTER consensus): `han_review.jsonl`
+      low_conf — the box was read with low consensus confidence. OCR correctness
+      is judged by the 3-engine consensus + Qwen arbiter (see han_consensus), so
+      the review queue only surfaces the low-confidence boxes a human should
+      re-check. Every review row carries empty `fix_type` / `correct` fields for
+      the reviewer to fill in.
 """
 from __future__ import annotations
 
 from collections import defaultdict
-from pathlib import Path
 
-from . import config
 from .common import oov_rate, oov_tokens, vi_tokens
 
 
@@ -74,79 +71,19 @@ def build_oov_vocab(vie: list[dict], vocab: set[str]) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- #
-# Hán lane (P2) — char validation (S1∩S2 rule from the course guide)
+# Hán lane (P2) — low-confidence box review (OCR correctness comes from the
+# consensus + Qwen arbiter, not a dictionary rule-check)
 # --------------------------------------------------------------------------- #
-def _parse_dic(path: Path) -> dict[str, list[str]]:
-    out: dict[str, list[str]] = {}
-    if not path.exists():
-        return out
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or ":" not in line:
-            continue
-        k, _, rest = line.partition(":")
-        out[k.strip()] = [t for t in rest.split() if t.strip()]
-    return out
+def build_review(boxes: list[dict], cfg: dict) -> list[dict]:
+    """Build the Hán human-review queue: low-confidence boxes.
 
-
-class CharValidator:
-    """Implements the S1∩S2 colouring rule from the course guide.
-
-        sn ∈ S2(qn)            -> BLACK (OCR correct)
-        else G = S1(sn)∩S2(qn) -> len>=1: GREEN(best in S1 order); 0: RED (failure)
+    The real OCR-correctness signal is the 3-engine consensus + Qwen arbiter
+    (see han_consensus): a box read with low consensus confidence is what a human
+    should re-check. The old dictionary rule-check (S1∩S2 char validation) was
+    dropped — its reading was derived from the OCR char itself, so the check was
+    near-circular and only ever flagged chars missing from the reading dict.
     """
-
-    BLACK, GREEN, RED = "BLACK", "GREEN", "RED"
-
-    def __init__(self):
-        self.s1 = _parse_dic(config.SINONOM_SIMILAR_DIC)              # sn -> [similar]
-        self.s2 = {k: set(v) for k, v in _parse_dic(config.QUOCNGU_SINONOM_DIC).items()}
-
-    def validate(self, sn: str, qn: str) -> dict:
-        s2 = self.s2.get(qn, set())
-        if sn in s2:
-            return {"sn": sn, "qn": qn, "status": self.BLACK, "corrected": sn}
-        s1 = self.s1.get(sn, [sn])
-        inter = [c for c in s1 if c in s2]                            # keep S1 order
-        if len(inter) >= 1:
-            return {"sn": sn, "qn": qn, "status": self.GREEN, "corrected": inter[0]}
-        return {"sn": sn, "qn": qn, "status": self.RED, "corrected": None}
-
-
-def validate_boxes(boxes: list[dict], validator: CharValidator) -> list[dict]:
-    rows = []
-    for b in boxes:
-        sylls = b["am_han_viet"].split()
-        chars = list(b["sinonom"])
-        for ch, qn in zip(chars, sylls):
-            r = validator.validate(ch, qn)
-            rows.append({"id": b["id"], "page": b["page"], "box_idx": b["box_idx"], **r})
-    return rows
-
-
-def build_review(boxes: list[dict], char_rows: list[dict], cfg: dict) -> list[dict]:
-    """Build the Hán human-review queue: RED chars + low-confidence boxes."""
-    box_by_id = {b["id"]: b for b in boxes}
     rows: list[dict] = []
-    pos_in_box: dict[str, int] = defaultdict(int)
-    for r in char_rows:
-        pos = pos_in_box[r["id"]]
-        pos_in_box[r["id"]] += 1
-        if r["status"] != "RED":
-            continue
-        b = box_by_id.get(r["id"], {})
-        text = b.get("sinonom", "")
-        context = f"{text[:pos]}【{r['sn']}】{text[pos + 1:]}"   # mark the char in its column
-        rows.append({
-            "level": "char", "reason": "RED",
-            "id": r["id"], "page": r["page"], "box_idx": r["box_idx"],
-            "char_pos": pos, "sn": r["sn"], "qn": r["qn"],
-            "conf": b.get("conf"), "bbox": b.get("bbox"),
-            "context": context,
-            "fix_type": "", "correct": "",   # reviewer fills: dict_gap|ocr_wrong|drop  +  reading or char
-        })
-
-    red_ids = {r["id"] for r in char_rows if r["status"] == "RED"}
     for b in boxes:
         conf = b.get("conf")
         if conf is None or conf >= cfg["conf_threshold"]:
@@ -158,6 +95,5 @@ def build_review(boxes: list[dict], char_rows: list[dict], cfg: dict) -> list[di
             "conf": conf, "bbox": b.get("bbox"),
             "context": b.get("sinonom", ""),
             "fix_type": "", "correct": "",
-            "also_red": b["id"] in red_ids,
         })
     return rows

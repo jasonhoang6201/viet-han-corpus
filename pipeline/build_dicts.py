@@ -317,9 +317,10 @@ def build() -> None:
              n_kviet, n_kanji, n_supp, n_teacher, n_variant)
 
     # --- S2: Quốc ngữ -> {SinoNom chars} (invert readings) ---------------- #
-    # Invert the SAME enriched char->readings we wrote to hanviet.csv (supplement
-    # + variant-fallback + teacher included), so step 4's S1∩S2 char validation
-    # recognises those chars (otherwise they'd read fine but be flagged RED).
+    # Course deliverable dictionary (rebuilt + merged). Invert the SAME enriched
+    # char->readings we wrote to hanviet.csv (supplement + variant-fallback +
+    # teacher included). No longer consumed by the pipeline — the old S1∩S2 char
+    # validation was dropped in favour of the consensus + Qwen arbiter.
     s2: dict[str, set[str]] = defaultdict(set)
     for word, chars in sample_s2.items():
         s2[word].update(chars)

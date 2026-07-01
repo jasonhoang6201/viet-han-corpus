@@ -1,20 +1,19 @@
 """Step 4 — Align the Hán and Vietnamese sides, export the spec Excel (P3).
 
 P3 is alignment-only. The VI review queue is built in step 2 (P1) and the Hán
-char validation + review queue in step 3 (P2, after consensus) — see
-pipeline/reviews.py. This module consumes their outputs.
+review queue in step 3 (P2, after consensus) — see pipeline/reviews.py. This
+module consumes their outputs.
 
 Inputs (from steps 2 & 3):
   out/<vol>/vi_sentences.jsonl
   out/<vol>/han_sentences.jsonl
   out/<vol>/han_boxes.jsonl
-  out/<vol>/char_validation.jsonl    per-char S1∩S2 colour status (from P2)
 
 Outputs:
   out/<vol>/<PREFIX>_alignment.xlsx  spec workbook (box-level + sentence sheet)
 
 Sentence alignment itself runs in notebook ③ (bge-m3 dense+sparse); this module
-emits the box/char Excel sheets (§II): ID | Image box | SinoNom char |
+emits the box Excel sheet (§II): ID | Image box | SinoNom char |
 Âm Hán Việt | Nghĩa thuần Việt, one row per box, ID = DSG_fff.ccc.ppp.ss.
 
 Run:  python -m pipeline.step4_align --vol vol1
@@ -31,10 +30,9 @@ log = get_logger("step4")
 
 
 # --------------------------------------------------------------------------- #
-# Char validation + the VI/Hán review queues moved to pipeline/reviews.py:
-# the VI lane runs in step 2 (P1) and the Hán lane in step 3 (P2, after the Qwen
-# consensus). This module is alignment + Excel only; it reads back the
-# char_validation.jsonl that step 3 wrote (see run()).
+# The VI/Hán review queues moved to pipeline/reviews.py: the VI lane runs in
+# step 2 (P1) and the Hán lane in step 3 (P2, after the Qwen consensus). This
+# module is alignment + Excel only.
 # --------------------------------------------------------------------------- #
 
 
@@ -91,7 +89,7 @@ def filter_vi_sentences(vie: list[dict], cfg: dict) -> tuple[list[dict], int]:
 # Excel export
 # --------------------------------------------------------------------------- #
 def export_excel(vol: str, boxes: list[dict], pairs: list[dict],
-                 char_rows: list[dict], path: Path) -> None:
+                 path: Path) -> None:
     import pandas as pd
 
     # Map each Hán sentence id -> aligned Vietnamese text (Nghĩa thuần Việt).
@@ -122,12 +120,9 @@ def export_excel(vol: str, boxes: list[dict], pairs: list[dict],
         "Lexical": p.get("lexical", ""),
         "Nghi lệch": "x" if p.get("suspect") else "",
     } for p in pairs])
-    df_char = pd.DataFrame(char_rows)
-
     with pd.ExcelWriter(path, engine="openpyxl") as xl:
         df_box.to_excel(xl, sheet_name="boxes", index=False)
         df_sent.to_excel(xl, sheet_name="sentence_alignment", index=False)
-        df_char.to_excel(xl, sheet_name="char_validation", index=False)
     log.info("[%s] wrote %s (%d boxes, %d pairs)", vol, path.name, len(df_box), len(df_sent))
 
 
@@ -142,23 +137,16 @@ def run(vol: str) -> None:
 
     log.info("[%s] %d boxes, %d Hán sents, %d Việt sents", vol, len(boxes), len(han_sents), len(vie_sents))
 
-    # Char validation + review queues now run in their own stages (VI lane in P1
-    # step 2, Hán lane in P2 step 3 after consensus). P3 is alignment-only; it just
-    # reads back char_validation.jsonl for the Excel char sheet (tolerant if the
-    # P2 stage did not produce it).
-    cv_path = out_dir / "char_validation.jsonl"
-    char_rows = list(read_jsonl(cv_path)) if cv_path.exists() else []
-    if not char_rows:
-        log.warning("[%s] no char_validation.jsonl — Excel char sheet will be empty "
-                    "(run step 3 --review in P2)", vol)
-
+    # Review queues run in their own stages (VI lane in P1 step 2, Hán lane in P2
+    # step 3 after consensus). P3 is alignment-only.
+    #
     # Sentence alignment runs in notebook ③ (bge-m3); this module only emits the
-    # box/char Excel sheets from the alignment pairs.
+    # box Excel sheet from the alignment pairs.
     pairs: list[dict] = []
 
     s = config.ID_SCHEMA
     prefix = f"{s['domain']}{s['subdomain']}{s['genre']}_{s['file_id']}"
-    export_excel(vol, boxes, pairs, char_rows, out_dir / f"{prefix}_alignment.xlsx")
+    export_excel(vol, boxes, pairs, out_dir / f"{prefix}_alignment.xlsx")
 
 
 def main() -> None:

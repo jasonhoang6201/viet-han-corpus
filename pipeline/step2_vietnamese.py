@@ -11,9 +11,10 @@ Design notes
   its own line detection + recognition (pipeline/vi_ocr.py). The embedded
   Tesseract layer mangles diacritics ("MINH MỆNH EHÍNH VẾU"), which drags down
   step-4 alignment; Surya recovers them.
-* Spell normalisation is dictionary-based and *conservative*: an out-of-vocab
-  token is only rewritten when exactly one in-vocab candidate exists within a
-  small edit distance, and the original is always preserved in `raw_text`.
+* Word-level auto-correction is OFF: OCR tokens are left as read. Only the
+  curated phrase-level CorrectionMap (vi_corrections.csv) still fires, and the
+  clean_vi noise strip runs. Out-of-vocab tokens are flagged (oov_rate) for a
+  human to fix by hand — never rewritten.
 * Sentence segmentation uses underthesea when available, with a regex fallback.
 
 Run:  python -m pipeline.step2_vietnamese --vol vol1
@@ -22,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import re
-from functools import lru_cache
 
 from . import config
 from .clean_vi import CLEAN_RULES, _SPACE_PUNCT, _WS, clean_text, is_junk
@@ -41,8 +41,10 @@ _VI_WORD = r"0-9A-Za-zÀ-ỹĐđ"
 class CorrectionMap:
     """Apply curated `wrong -> correct` fixes from vi_corrections.csv.
 
-    Handles what the edit-distance SpellFixer can't: multi-syllable terms,
-    hyphenated proper nouns and reign titles (e.g. 'Triệu-trị' -> 'Thiệu Trị').
+    The ONLY word-level correction kept in step 2 (generic edit-distance auto-fix
+    was removed): deterministic multi-syllable terms, hyphenated proper nouns and
+    reign titles (e.g. 'Triệu-trị' -> 'Thiệu Trị'). Everything else OOV is flagged
+    for a human, never rewritten.
 
     Matching rules:
       * case-insensitive; a space in `wrong` matches one or more spaces OR
@@ -83,107 +85,6 @@ class CorrectionMap:
         for pat, correct in self.rules:
             text = pat.sub(lambda m: self._recase(m.group(0), correct), text)
         return text
-
-
-# Single-character OCR confusions on this 1970s typeset reprint. Each pair is
-# bidirectional. The recogniser occasionally drops the `h` ascender after a
-# stop ("theo"->"tbeo", "thần"->"tbần") or flattens a few vowel/tone glyphs.
-# Applied per OOV token, accepted only when EXACTLY ONE substitution lands in
-# vocab — so the rule self-limits (a confusion that yields a non-word does
-# nothing). Keep this list SHORT and high-precision; tone-level errors that stay
-# ambiguous are left for the recogniser (Surya) / human reviewer.
-_CONFUSABLE_PAIRS = (
-    ("b", "h"),   # tbần->thần, tbeo->theo  (dropped ascender)
-    ("o", "ô"),   # so->sô, cong->công
-    ("e", "ê"),   # ben->bên
-    ("u", "ư"),   # tu->tư
-    ("d", "đ"),   # dao->đao
-)
-
-
-# --------------------------------------------------------------------------- #
-# Conservative dictionary-based spell normalisation
-# --------------------------------------------------------------------------- #
-class SpellFixer:
-    def __init__(self, cfg: dict):
-        self.cfg = cfg
-        self.vocab = load_vi_vocab(single_syllable=True)
-        # index vocab by length for fast edit-distance candidate generation
-        self.by_len: dict[int, set[str]] = {}
-        for w in self.vocab:
-            self.by_len.setdefault(len(w), set()).add(w)
-
-    def _confusable_fix(self, low: str) -> str | None:
-        """Apply each known char confusion once; return the unique in-vocab
-        result, or None if zero or several confusions land in vocab."""
-        hits = set()
-        for i, ch in enumerate(low):
-            for a, b in _CONFUSABLE_PAIRS:
-                for src, dst in ((a, b), (b, a)):
-                    if ch == src:
-                        cand = low[:i] + dst + low[i + 1:]
-                        if cand in self.vocab:
-                            hits.add(cand)
-        return next(iter(hits)) if len(hits) == 1 else None
-
-    @lru_cache(maxsize=100_000)
-    def _candidates(self, token: str) -> tuple[str, ...]:
-        """In-vocab words within edit distance `spell_max_edit_distance`."""
-        maxd = self.cfg["spell_max_edit_distance"]
-        cands = []
-        for L in range(len(token) - maxd, len(token) + maxd + 1):
-            for w in self.by_len.get(L, ()):  # noqa: E741
-                if _edit_distance_le(token, w, maxd):
-                    cands.append(w)
-        return tuple(cands)
-
-    def fix_token(self, token: str) -> str:
-        low = token.lower()
-        if (len(low) < self.cfg["spell_min_token_len"]
-                or low in self.vocab or not low.isalpha()):
-            return token
-        hit = self._confusable_fix(low)          # targeted OCR confusions first
-        if hit is not None:
-            return _match_case(token, hit)
-        cands = self._candidates(low)
-        if len(cands) == 1:                      # unambiguous -> apply
-            return _match_case(token, cands[0])
-        return token
-
-    def fix_text(self, text: str) -> str:
-        return re.sub(r"[^\W\d_]+", lambda m: self.fix_token(m.group(0)), text,
-                      flags=re.UNICODE)
-
-
-def _edit_distance_le(a: str, b: str, maxd: int) -> bool:
-    """True if Levenshtein(a, b) <= maxd (early-exit banded DP)."""
-    la, lb = len(a), len(b)
-    if abs(la - lb) > maxd:
-        return False
-    prev = list(range(lb + 1))
-    for i in range(1, la + 1):
-        cur = [i] + [0] * lb
-        lo, hi = max(1, i - maxd), min(lb, i + maxd)
-        best = maxd + 1
-        for j in range(1, lb + 1):
-            if j < lo or j > hi:
-                cur[j] = maxd + 1
-                continue
-            cost = 0 if a[i - 1] == b[j - 1] else 1
-            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
-            best = min(best, cur[j])
-        if best > maxd:
-            return False
-        prev = cur
-    return prev[lb] <= maxd
-
-
-def _match_case(src: str, repl: str) -> str:
-    if src.isupper():
-        return repl.upper()
-    if src[:1].isupper():
-        return repl.capitalize()
-    return repl
 
 
 # --------------------------------------------------------------------------- #
@@ -325,7 +226,6 @@ def run(vol: str, chapter: int = 1) -> Path:
         page_box_texts[p] = [t for _, t in vi_boxes.get(p, [])]
     write_jsonl(out_dir / "vi_boxes.jsonl", box_rows)
 
-    fixer = SpellFixer(cfg)
     corrector = CorrectionMap(config.VI_CORRECTIONS_CSV)
     split = get_sentence_splitter()
     vocab = load_vi_vocab()
@@ -386,8 +286,7 @@ def run(vol: str, chapter: int = 1) -> Path:
             start = cursor
         cursor = start + len(sent)
         page_no = page_at(start)
-        fixed = corrector.apply(sent)          # domain fixes first
-        fixed = fixer.fix_text(fixed)          # then generic spell fix
+        fixed = corrector.apply(sent)          # curated phrase-level fixes only
         fixed, _ = clean_text(fixed)                            # strip leftover noise
         if is_junk(fixed):                                      # row was only page furniture
             continue

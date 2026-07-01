@@ -142,19 +142,13 @@ VIETNAMESE = dict(
     header_gap_factor=1.4,    # gap below header >= this * median line gap to qualify
     header_max_lines=1.8,     # header band height <= this * median line height (single line)
 
-    # Dictionary-based spell normalisation: only auto-correct an out-of-vocab
-    # token when a single in-vocab candidate exists within this edit distance.
-    spell_max_edit_distance=1,
-    spell_min_token_len=2,    # don't try to "fix" tokens shorter than this
-    # Three normalisation passes always run in step 2 (raw_text is kept):
+    # Word-level auto-correction is OFF by design. OCR tokens are left AS READ;
+    # out-of-vocab tokens are only flagged (oov_rate -> vi_review.jsonl) for a
+    # human to fix by hand (tool/vi.html). The only text mutation kept in step 2:
     #  - Domain correction map (assets/dicts/vi_corrections.csv): deterministic
-    #    phrase-level fixes for reign titles / institution names the generic
-    #    edit-distance fixer can't reach. Applied first.
-    #  - Confusable-character fixer: targeted single-char OCR substitutions
-    #    (e.g. b<->h) applied to an OOV token only when EXACTLY ONE variant is in
-    #    vocab. Kills the ambiguity plain edit-distance can't ("tbần" is edit-1
-    #    from thần/trần/tần — confusion rule narrows it to "thần").
-    #  - Dictionary spellcheck: see spell_* params above.
+    #    phrase-level fixes for reign titles / institution names.
+    #  - clean_vi noise strip: page furniture / LaTeX hallucinations (not words).
+    # raw_text is always preserved.
 )
 
 # --------------------------------------------------------------------------- #
@@ -178,12 +172,31 @@ PREPROCESS = dict(
 # right way is essential (~70%). PaddleOCR is the single OCR engine here: it
 # detects the column boxes, we reconstruct reading order, then recognise each
 # column by rotating the crop 90°. Residual errors are flagged/corrected offline
-# by the S1∩S2 rule in step 4.
+# by the 3-engine consensus + Qwen arbiter (see han_consensus), and low-confidence
+# boxes go to the review queue.
 SINONOM = dict(
     preprocess=True,
     paddle_lang="chinese_cht",   # traditional Chinese fits woodblock prints
     # column clustering tolerance (fraction of median box width).
     column_tol=0.6,
+    # --- fragment-fix / reading-order (validated in notebooks/Minh_Menh_Han_Fragfix_TEST) ---
+    # PaddleOCR over-splits a vertical column into stray boxes and mixes in margin
+    # running-heads + 雙行 interlinear notes. We cluster detections into columns by
+    # x-centre (RTL), merge vertical splits, drop the running-head band, and tag the
+    # hard 雙行 zones (geometry can't order them) so downstream can isolate them.
+    col_gap_frac=0.55,        # same column if |Δx-centre| <= this * median width
+    narrow_w_frac=0.62,       # a box narrower than this * median width is a 小字/雙行 fragment
+    tiny_area_frac=0.06,      # drop boxes smaller than this * median area (ink blobs / ▮)
+    dbl_split_frac=0.28,      # 2 x-groups this far apart inside a cluster => 雙行
+    dbl_min_boxes=4,          # a cluster with >= this many boxes is a 雙行 zone (tag is_dbl)
+    head_margin_frac=0.16,    # running-head band sits within this * page width of a margin
+    head_narrow_frac=0.72,    # ... and is narrower than this * median width
+    drop_running_head=True,
+    drop_tiny=True,
+    # bigram that appears ONLY in the running-head (chapter open '明命政要卷之X 篇' and
+    # close '...卷之X止'); verified 0 false-positives across all 6 vols. NB: bare '政要'
+    # is real content (貞觀政要, 政要所書) so we never drop on '政要' alone.
+    head_phrases=("政要卷之", "命政要卷"),
     # Classical Hán is frequently unpunctuated. If a page has fewer than this
     # fraction of sentence-final marks we treat each column/box as a sentence.
     min_punct_ratio=0.01,
@@ -218,6 +231,22 @@ ALIGN = dict(
 )
 
 # --------------------------------------------------------------------------- #
+# Step 3c — Hán sentence segmentation (auto-punctuation), runs in notebook ②
+# --------------------------------------------------------------------------- #
+# Woodblock text is unpunctuated, so step 3 falls back to column-as-sentence, which
+# over-segments the Hán side ~3x vs the VI sentences. After the consensus fixes the
+# characters, a token-classification punctuator re-reads the clean per-page stream and
+# inserts marks; we split on sentence-final marks into real sentences. Pure split +
+# box-mapping logic is in pipeline.han_segment; this holds the knobs.
+HAN_SEGMENT = dict(
+    enabled=True,
+    model="raynardj/classical-chinese-punctuation-guwen-biaodian",  # 0.1B, offline
+    max_len=460,               # chars per model call (< model 512 limit); pages are ~180
+    overlap=32,                # char overlap when a page stream exceeds max_len
+    sent_marks="。！？；",       # marks that end a sentence (； closes a full clause here)
+)
+
+# --------------------------------------------------------------------------- #
 # Step 3b — Hán OCR consensus (clean characters BEFORE alignment)
 # --------------------------------------------------------------------------- #
 # PaddleOCR ("base") mis-reads blurry / rare woodblock characters with high
@@ -248,6 +277,19 @@ CONSENSUS = dict(
     crop_inset=4,              # px trimmed off each column bbox to drop the box border
     upscale=2,                 # upscale the crop before recognition
     max_new_tok=64,
+    # --- GPU memory guards (added after step3 column-MERGE made crops bigger) ---
+    # A merged column (esp. a 雙行 union) is a much larger crop than a single
+    # detection, so Qwen-VL emits many vision tokens -> attention blows past a T4.
+    # Cap the vision tokens hard so any crop is safe, and skip the VLM on the messy
+    # 雙行 zones (their order is a geometric guess we don't trust anyway).
+    qwen_max_pixels=1003520,   # <= 1280 vision tokens (1280*28*28); bounds attn memory
+    qwen_min_pixels=3136,      # 4*28*28 (processor floor)
+    qwen_skip_dbl=True,        # don't spend the VLM on is_dbl columns
+    qwen_empty_cache_every=200,  # torch.cuda.empty_cache() cadence to fight fragmentation
+    # Run Qwen in fp16 instead of 4-bit when the GPU has plenty of VRAM (>= this GB).
+    # On big/newer cards (L4-24 is borderline; A100/G4) fp16 avoids bitsandbytes
+    # dequant overhead and is faster; 4-bit stays the default on small GPUs (T4).
+    fp16_vram_gb=40,
 )
 
 # --------------------------------------------------------------------------- #

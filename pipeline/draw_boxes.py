@@ -18,8 +18,8 @@ Coordinate frames match each PNG (Hán: original rendered page, as make_report
 crops from; VI: post-header-crop image actually OCR'd), so no rescaling.
 
 Box→pair chain:
-  * Hán: pair.han_ids -> han_sentences.box_ids (0-based page-local) -> +1 ->
-         han_boxes (page, box_idx) -> bbox.
+  * Hán: pair.han_ids -> han_sentences.box_ids (GLOBAL box ids; a sentence may
+         span pages) -> han_boxes id -> (page, bbox).
   * Việt: pair.vie_ids -> vi_sentences.box_ids (vi_boxes ids) -> bbox.
 
 Run:  python -m pipeline.draw_boxes --vol vol1
@@ -120,9 +120,9 @@ def _aligned_layers(out_dir: Path, align_path: Path | None = None) -> int:
         return 0
     pairs = list(read_jsonl(align_p))
 
-    # Hán: (page, box_idx) -> bbox ; sentence id -> (page, 0-based box_ids)
-    han_bbox = {(r["page"], r["box_idx"]): r["bbox"]
-                for r in read_jsonl(out_dir / "han_boxes.jsonl")}
+    # Hán: box id -> (page, bbox) ; sentence carries GLOBAL box ids (may span pages)
+    han_box = {r["id"]: (r["page"], r["bbox"])
+               for r in read_jsonl(out_dir / "han_boxes.jsonl")}
     han_sent = {r["id"]: r for r in read_jsonl(out_dir / "han_sentences.jsonl")}
     # Việt: vi_box id -> (page, bbox) ; sentence id -> row (carries box_ids)
     vi_box: dict[str, tuple[int, list]] = {}
@@ -140,10 +140,11 @@ def _aligned_layers(out_dir: Path, align_path: Path | None = None) -> int:
             row = han_sent.get(hid)
             if not row:
                 continue
-            for bi in row.get("box_ids", []):
-                bbox = han_bbox.get((row["page"], bi + 1))   # box_ids are 0-based
-                if bbox:
-                    han_pages[row["page"]].append((bbox, color, pi))
+            for bid in row.get("box_ids", []):
+                hit = han_box.get(bid)                        # global box id -> (page, bbox)
+                if hit:
+                    page, bbox = hit
+                    han_pages[page].append((bbox, color, pi))
         for vid in p.get("vie_ids", []):
             row = vi_sent.get(vid)
             if not row:

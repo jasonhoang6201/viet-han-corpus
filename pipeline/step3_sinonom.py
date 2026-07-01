@@ -1,10 +1,10 @@
 """Step 3 — Hán / SinoNom side: OCR -> reading order -> segmentation.
 
 Input : out/<vol>/pages_han/*.png   (rendered by step 1)
-Output: out/<vol>/han_boxes.jsonl       one row per detected box (column)
-            {chapter, page, box_idx, id, bbox, sinonom, am_han_viet}
+Output: out/<vol>/han_boxes.jsonl       one row per COLUMN (merged, reading-ordered)
+            {chapter, page, box_idx, id, bbox, sinonom, am_han_viet, conf, is_dbl}
         out/<vol>/han_sentences.jsonl    one row per Hán sentence
-            {chapter, page, sent_idx, id, sinonom, am_han_viet, box_ids}
+            {chapter, page, sent_idx, id, sinonom, am_han_viet, box_ids, is_dbl}
 
 Design notes
 ------------
@@ -18,10 +18,18 @@ Design notes
   on the rotated page gives both good recognition and the right order.
   Detection boxes are mapped back to original-page coordinates for the Excel
   "Image box" column.
+* PaddleOCR over-splits a column into stray boxes and mixes in the margin
+  running-head + 雙行 interlinear notes. ``analyze_page`` clusters detections into
+  columns by x-centre (RTL), merges vertical splits, drops the running-head band
+  (both margins — it swaps side by page parity — plus the head-only bigram 政要卷之),
+  and tags the hard 雙行 zones with ``is_dbl`` (geometry can't order them). Tuned +
+  validated visually in notebooks/Minh_Menh_Han_Fragfix_TEST.ipynb.
 * âm Hán-Việt for every character comes from assets/dicts/hanviet.csv (Unihan).
 * Sentence segmentation: woodblock prints are usually *unpunctuated*. If a page
   carries enough sentence-final punctuation we split on it; otherwise we treat
-  each column/box as a sentence unit (the natural granularity for alignment).
+  each column as a sentence unit (the natural granularity for alignment). ``is_dbl``
+  rides through so a later real sentence-splitter / the aligner can isolate the
+  approximate-order 雙行 text.
 
 Requires PaddleOCR 3.x (uses the `predict()` API and OCRResult format).
 
@@ -164,22 +172,95 @@ def _unrotate_bbox(rx0, ry0, rx1, ry1, orig_w: int) -> list[int]:
     return [int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1))]
 
 
-def _reading_order(boxes: list[dict]) -> list[dict]:
-    """Order boxes by classical reading order using rotated-frame coordinates.
+def _cx(b): return (b["bbox"][0] + b["bbox"][2]) / 2
+def _cy(b): return (b["bbox"][1] + b["bbox"][3]) / 2
+def _bw(b): return b["bbox"][2] - b["bbox"][0]
+def _bh(b): return b["bbox"][3] - b["bbox"][1]
+def _barea(b): return _bw(b) * _bh(b)
 
-    In the rotated frame each column is a horizontal line; reading order is
-    top→bottom (line) then left→right (within line). Each box carries a temporary
-    `_rot` = (ry0, ry1, rx0) used only for sorting, stripped before returning.
+
+def analyze_page(boxes: list[dict], cfg: dict, page_w: int) -> list[dict]:
+    """Turn raw PaddleOCR detections into reading-ordered COLUMNS.
+
+    Woodblock pages are vertical columns, right-to-left. PaddleOCR over-splits a
+    column into stray boxes and mixes in the margin running-head + 雙行 interlinear
+    notes. We: drop tiny ink blobs, cluster detections into columns by x-centre
+    (RTL), drop the running-head band (thin margin strip on EITHER side — it swaps
+    margin by page parity — plus any cluster carrying the head-only bigram 政要卷之),
+    merge true vertical splits (concatenate top→bottom), and tag the 雙行 zones
+    (geometry can't order them reliably) with ``is_dbl`` so downstream isolates them.
+
+    Returns ordered column dicts: {bbox (union), sinonom, conf, is_dbl}.
+    Validated visually in notebooks/Minh_Menh_Han_Fragfix_TEST.ipynb.
     """
+    idx = list(range(len(boxes)))
     if not boxes:
-        return boxes
-    heights = [b["_rot"][1] - b["_rot"][0] for b in boxes]
-    band = (statistics.median(heights) or 1.0) * 0.6
-    boxes.sort(key=lambda b: (round(((b["_rot"][0] + b["_rot"][1]) / 2) / band),
-                              b["_rot"][2]))
-    for b in boxes:
-        del b["_rot"]
-    return boxes
+        return []
+    wm = statistics.median([_bw(boxes[i]) for i in idx]) or 1.0
+    am = statistics.median([_barea(boxes[i]) for i in idx]) or 1.0
+
+    keep = []
+    for i in idx:
+        if cfg["drop_tiny"] and _barea(boxes[i]) < cfg["tiny_area_frac"] * am:
+            continue                                    # ink blob / ▮ censored char
+        keep.append(i)
+
+    # cluster into columns by x-centre, right-to-left (reading order of columns)
+    keep.sort(key=lambda i: -_cx(boxes[i]))
+    clusters: list[list[int]] = []
+    cur: list[int] = []
+    for i in keep:
+        if cur and abs(_cx(boxes[i]) - statistics.mean([_cx(boxes[j]) for j in cur])) \
+                <= cfg["col_gap_frac"] * wm:
+            cur.append(i)
+        else:
+            if cur:
+                clusters.append(cur)
+            cur = [i]
+    if cur:
+        clusters.append(cur)
+
+    # running-head: (a) thin margin strip on either end, (b) any cluster carrying
+    # the head-only bigram. Geometry is width-based only — a real date column like
+    # 明命九年 is full-width so it is never dropped.
+    if cfg["drop_running_head"] and clusters:
+        def _is_head_strip(cl):
+            cx = statistics.mean([_cx(boxes[i]) for i in cl])
+            near = cx < cfg["head_margin_frac"] * page_w or \
+                cx > page_w - cfg["head_margin_frac"] * page_w
+            if not near:
+                return False
+            return statistics.mean([_bw(boxes[i]) for i in cl]) < cfg["head_narrow_frac"] * wm
+        for end in (0, -1):
+            if clusters and _is_head_strip(clusters[end]):
+                clusters.pop(end)
+        phrases = tuple(cfg["head_phrases"])
+        clusters = [cl for cl in clusters
+                    if not any(ph in "".join(boxes[i]["sinonom"] for i in cl) for ph in phrases)]
+
+    columns = []
+    for cl in clusters:
+        cxs = sorted(cl, key=lambda i: -_cx(boxes[i]))
+        span = _cx(boxes[cxs[0]]) - _cx(boxes[cxs[-1]])
+        narrow = any(_bw(boxes[i]) < cfg["narrow_w_frac"] * wm for i in cl)
+        is_dbl = len(cl) >= cfg["dbl_min_boxes"] or \
+            (len(cl) >= 3 and narrow and span > cfg["dbl_split_frac"] * wm)
+        if is_dbl:                                      # 雙行: guess right sub-col then left
+            mid = (_cx(boxes[cxs[0]]) + _cx(boxes[cxs[-1]])) / 2
+            right = sorted([i for i in cl if _cx(boxes[i]) >= mid], key=lambda i: _cy(boxes[i]))
+            left = sorted([i for i in cl if _cx(boxes[i]) < mid], key=lambda i: _cy(boxes[i]))
+            seq = right + left
+        else:                                           # single column: top -> bottom
+            seq = sorted(cl, key=lambda i: _cy(boxes[i]))
+        xs = [boxes[i]["bbox"][0] for i in seq] + [boxes[i]["bbox"][2] for i in seq]
+        ys = [boxes[i]["bbox"][1] for i in seq] + [boxes[i]["bbox"][3] for i in seq]
+        columns.append({
+            "bbox": [min(xs), min(ys), max(xs), max(ys)],
+            "sinonom": "".join(boxes[i]["sinonom"] for i in seq),
+            "conf": round(min(boxes[i]["conf"] for i in seq), 3),
+            "is_dbl": is_dbl,
+        })
+    return columns
 
 
 class HanOCR:
@@ -206,9 +287,9 @@ class HanOCR:
                 "bbox": _unrotate_bbox(rx0, ry0, rx1, ry1, orig_w),
                 "sinonom": chars,
                 "conf": round(float(score), 3),
-                "_rot": (ry0, ry1, rx0),
             })
-        return _reading_order(boxes)
+        # cluster raw detections -> merged, reading-ordered columns (+ head drop, 雙行 tag)
+        return analyze_page(boxes, self.cfg, orig_w)
 
 
 def ocr_page(han_ocr: HanOCR, img_path: Path, cfg: dict) -> list[dict]:
@@ -229,7 +310,12 @@ def ocr_page(han_ocr: HanOCR, img_path: Path, cfg: dict) -> list[dict]:
 # Sentence segmentation
 # --------------------------------------------------------------------------- #
 def segment_page(boxes: list[dict], cfg: dict) -> list[dict]:
-    """Return sentence dicts: {sinonom, box_ids}. box_ids index into `boxes`."""
+    """Return sentence dicts: {sinonom, box_ids, is_dbl}. box_ids index into `boxes`.
+
+    `is_dbl` marks a sentence that came from a 雙行 interlinear zone whose reading
+    order is only a geometric guess — downstream (sentence split / alignment) can
+    isolate or down-weight it. Real column text carries is_dbl=False.
+    """
     full = "".join(b["sinonom"] for b in boxes)
     sent_marks = set(cfg["sentence_punct"])
     n_marks = sum(1 for c in full if c in sent_marks)
@@ -245,13 +331,18 @@ def segment_page(boxes: list[dict], cfg: dict) -> list[dict]:
                 cur.append(ch)
                 cur_boxes.add(bi)
                 if ch in sent_marks:
-                    sents.append({"sinonom": "".join(cur), "box_ids": sorted(cur_boxes)})
+                    ids = sorted(cur_boxes)
+                    sents.append({"sinonom": "".join(cur), "box_ids": ids,
+                                  "is_dbl": any(boxes[i].get("is_dbl") for i in ids)})
                     cur, cur_boxes = [], set()
         if cur:
-            sents.append({"sinonom": "".join(cur), "box_ids": sorted(cur_boxes)})
+            ids = sorted(cur_boxes)
+            sents.append({"sinonom": "".join(cur), "box_ids": ids,
+                          "is_dbl": any(boxes[i].get("is_dbl") for i in ids)})
         return sents
     # Unpunctuated woodblock print: one sentence == one column/box.
-    return [{"sinonom": b["sinonom"], "box_ids": [bi]} for bi, b in enumerate(boxes)]
+    return [{"sinonom": b["sinonom"], "box_ids": [bi], "is_dbl": bool(b.get("is_dbl"))}
+            for bi, b in enumerate(boxes)]
 
 
 def _clean(text: str, cfg: dict) -> str:
@@ -302,7 +393,7 @@ def run(vol: str, chapter: int = 1, limit: int | None = None) -> tuple[Path, Pat
                 "chapter": chapter, "page": page_no, "box_idx": b_idx,
                 "bbox": b["bbox"], "sinonom": chars,
                 "am_han_viet": transliterate(chars, hanviet),
-                "conf": b["conf"],
+                "conf": b["conf"], "is_dbl": bool(b.get("is_dbl")),
             })
 
         for s_idx, s in enumerate(segment_page(boxes, cfg), start=1):
@@ -314,7 +405,10 @@ def run(vol: str, chapter: int = 1, limit: int | None = None) -> tuple[Path, Pat
                 "chapter": chapter, "page": page_no, "sent_idx": s_idx,
                 "sinonom": chars,
                 "am_han_viet": transliterate(chars, hanviet),
-                "box_ids": s["box_ids"],
+                # GLOBAL box ids (page-local index -> box id) so han_sentences is
+                # consistent whether or not step 3c re-segments it in the notebook.
+                "box_ids": [make_id(chapter, page_no, bi + 1) for bi in s["box_ids"]],
+                "is_dbl": bool(s.get("is_dbl")),
             })
 
     box_path = out_dir / "han_boxes.jsonl"
@@ -326,27 +420,24 @@ def run(vol: str, chapter: int = 1, limit: int | None = None) -> tuple[Path, Pat
 
 
 def review(vol: str) -> Path:
-    """Hán review queue — char validation (S1∩S2) + low-conf boxes.
+    """Hán review queue — low-confidence boxes.
 
     Moved out of step 4 so P3 is alignment-only. Run AFTER the Qwen consensus
-    (step3b) has rewritten han_boxes.jsonl, so it validates the corrected chars.
-    Reads han_boxes.jsonl; writes char_validation.jsonl + han_review.jsonl.
+    (step3b) has rewritten han_boxes.jsonl, so the confidences reflect the
+    corrected chars. OCR correctness is judged by the consensus + Qwen arbiter,
+    so the queue only surfaces low-confidence boxes. Reads han_boxes.jsonl;
+    writes han_review.jsonl.
     """
-    from .reviews import CharValidator, build_review, validate_boxes
+    from .reviews import build_review
 
     out_dir = config.OUT_DIR / vol
     boxes = list(read_jsonl(out_dir / "han_boxes.jsonl"))
-    char_rows = validate_boxes(boxes, CharValidator())
-    write_jsonl(out_dir / "char_validation.jsonl", char_rows)
-    n_red = sum(1 for r in char_rows if r["status"] == "RED")
-    log.info("[%s] char validation: %d chars, %d RED", vol, len(char_rows), n_red)
 
-    review_rows = build_review(boxes, char_rows, config.REVIEW)
+    review_rows = build_review(boxes, config.REVIEW)
     rev_path = out_dir / "han_review.jsonl"
     write_jsonl(rev_path, review_rows)
-    n_low = sum(1 for r in review_rows if r["reason"] == "low_conf")
-    log.info("[%s] Hán review: %d items (%d RED chars + %d low-conf boxes) -> %s",
-             vol, len(review_rows), n_red, n_low, rev_path.name)
+    log.info("[%s] Hán review: %d low-conf boxes -> %s",
+             vol, len(review_rows), rev_path.name)
     return rev_path
 
 
@@ -357,7 +448,7 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=None,
                     help="OCR only the first N Hán pages (quick smoke test)")
     ap.add_argument("--review", action="store_true",
-                    help="skip OCR; build char_validation + han_review from existing han_boxes "
+                    help="skip OCR; build han_review from existing han_boxes "
                          "(run after the Qwen consensus step)")
     args = ap.parse_args()
     if args.review:

@@ -158,22 +158,17 @@ def vi_diacritic_ratio(text: str) -> tuple[int, float]:
     return len(toks), accented / len(toks)
 
 
-def load_vi_vocab(single_syllable: bool = False) -> set[str]:
+def load_vi_vocab() -> set[str]:
     """Lowercased Vietnamese wordlist from `config.VIET_WORDLIST`.
 
-    Shared by step 2 (spell-fix + OOV) and step 4 (VI filter + OOV report) so the
-    list is loaded one way everywhere. `single_syllable=True` keeps only one-token
-    words (no space/hyphen) — what the edit-distance SpellFixer needs; the default
-    full set is right for OOV lookups (single-token queries never match multiword
-    entries anyway)."""
+    Shared by step 2 (OOV flag) and step 4 (VI filter + OOV report) so the list is
+    loaded one way everywhere."""
     vocab: set[str] = set()
     if not config.VIET_WORDLIST.exists():
         return vocab
     for line in config.VIET_WORDLIST.read_text(encoding="utf-8").splitlines():
         w = line.strip().lower()
         if not w:
-            continue
-        if single_syllable and (" " in w or "-" in w):
             continue
         vocab.add(w)
     return vocab
