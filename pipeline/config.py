@@ -159,8 +159,11 @@ VIETNAMESE = dict(
 PREPROCESS = dict(
     grayscale=True,
     deskew=True,             # straighten slightly rotated scans
-    denoise=True,            # remove speckle
-    binarize="adaptive",     # "adaptive" | "otsu" | None
+    denoise=False,           # was True — winning spike config was raw (no denoise)
+    binarize=None,           # was "adaptive" — adaptiveThreshold wiped thin woodblock
+                             # strokes and dropped a whole column on p149. Raw recovers
+                             # it AND scores higher (0.827 vs 0.788). See notebook
+                             # Minh_Menh_Han_OCR_Config_Spike. "adaptive" | "otsu" | None
     upscale_min_height=0,    # upscale page if shorter than this (0 = off)
 )
 
@@ -172,8 +175,8 @@ PREPROCESS = dict(
 # right way is essential (~70%). PaddleOCR is the single OCR engine here: it
 # detects the column boxes, we reconstruct reading order, then recognise each
 # column by rotating the crop 90°. Residual errors are flagged/corrected offline
-# by the 3-engine consensus + Qwen arbiter (see han_consensus), and low-confidence
-# boxes go to the review queue.
+# by the 2-engine consensus: base (PaddleOCR) + Qwen-VL arbiter (see han_consensus).
+# Low-confidence boxes go to the review queue.
 SINONOM = dict(
     preprocess=True,
     paddle_lang="chinese_cht",   # traditional Chinese fits woodblock prints
@@ -254,26 +257,20 @@ HAN_SEGMENT = dict(
 # this measurably fixes real errors (e.g. the title 明命政要 base read as 明命政安饰).
 # Method + model I/O live in notebook ② via pipeline.han_consensus; thresholds here.
 #
-# `spec` (a SinoNom-specialised PP-OCRv5 rec) agrees with base only ~0.4% on this
-# corpus and does NOT decide the vote in qwen_arbiter mode, so it is OFF by
-# default. The real cost lever is gating the (expensive) VLM on base confidence:
-# only re-read columns the base engine was unsure about.
+# The cost lever is gating the (expensive) VLM on base confidence: only re-read
+# columns the base engine was unsure about.
 CONSENSUS = dict(
-    # engines
-    spec_repo="MinhDS/Fine-tuned-PaddleOCRv5",   # HF Space: Hán-Nôm fine-tuned rec
-    spec_name="PP-OCRv5_server_rec",
-    use_spec=False,            # specialist ~0.4% agreement + not decisive -> off (set True to mirror NB4)
+    # engines: base (PaddleOCR, step3) + qwen (Qwen2.5-VL arbiter)
     qwen_model="Qwen/Qwen2.5-VL-7B-Instruct",
     load_4bit=True,            # 4-bit (~6 GB) so it co-resides with bge-m3 on a T4
     vote_mode="qwen_arbiter",  # "qwen_arbiter" (base==qwen keep base; else trust qwen) | "majority"
     # which columns get the VLM:
     #   "full"    — every column (most accurate, ~3h/vol; use to re-tune)
     #   "cascade" — only the columns below worth re-reading (production default):
-    #               base conf < qwen_conf_gate, OR (use_spec and base != spec).
+    #               base conf < qwen_conf_gate.
     vlm_mode="cascade",
     qwen_conf_gate=0.90,       # cascade: skip the VLM on columns base read with conf >= this
     # crop / decode
-    spec_rotate="cw",          # vertical column -> rec orientation: "none" | "cw" | "ccw"
     crop_inset=4,              # px trimmed off each column bbox to drop the box border
     upscale=2,                 # upscale the crop before recognition
     max_new_tok=64,

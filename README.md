@@ -56,7 +56,7 @@ pipeline/
   step2_vietnamese.py  re-OCR VI images (Surya) → spell-fix → underthesea
   vi_ocr.py            VI image OCR; crops the top running-head/page-number band
   step3_sinonom.py     preprocess → PaddleOCR detect + vertical recognise → segment
-  step4_align.py       S1∩S2 char validation + review/OOV lanes + Excel
+  step4_align.py       Excel export (box sheet) — alignment-only
                        (sentence alignment runs in notebook ③, bge-m3)
 assets/
   dicts/   Viet74K.txt, hanviet.csv, QuocNgu_SinoNom.dic (S2), SinoNom_Similar.dic (S1)
@@ -96,7 +96,7 @@ python -m pipeline.step4_align      --vol vol1 # align + S1∩S2 + Excel
 
 Output workbook: `out/vol1/HVH_001_alignment.xlsx` with sheets
 `boxes` (spec layout: ID · Image box · SinoNom char · Âm Hán Việt · Nghĩa thuần Việt),
-`sentence_alignment` (m-n pairs + similarity), `char_validation` (S1∩S2 colours).
+`sentence_alignment` (m-n pairs + similarity).
 
 ## ID schema
 

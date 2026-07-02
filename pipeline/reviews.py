@@ -9,7 +9,7 @@ alignment-only):
       where there is no model confidence.
   * Hán lane (P2, step 3, AFTER consensus): `han_review.jsonl`
       low_conf — the box was read with low consensus confidence. OCR correctness
-      is judged by the 3-engine consensus + Qwen arbiter (see han_consensus), so
+      is judged by the 2-engine consensus (base + Qwen arbiter, see han_consensus), so
       the review queue only surfaces the low-confidence boxes a human should
       re-check. Every review row carries empty `fix_type` / `correct` fields for
       the reviewer to fill in.
@@ -77,8 +77,8 @@ def build_oov_vocab(vie: list[dict], vocab: set[str]) -> list[dict]:
 def build_review(boxes: list[dict], cfg: dict) -> list[dict]:
     """Build the Hán human-review queue: low-confidence boxes.
 
-    The real OCR-correctness signal is the 3-engine consensus + Qwen arbiter
-    (see han_consensus): a box read with low consensus confidence is what a human
+    The real OCR-correctness signal is the 2-engine consensus (base + Qwen arbiter,
+    see han_consensus): a box read with low consensus confidence is what a human
     should re-check. The old dictionary rule-check (S1∩S2 char validation) was
     dropped — its reading was derived from the OCR char itself, so the check was
     near-circular and only ever flagged chars missing from the reading dict.

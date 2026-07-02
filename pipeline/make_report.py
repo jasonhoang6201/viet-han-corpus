@@ -185,7 +185,7 @@ def main():
 
 <div class="card"><h2>Đánh giá: đủ nộp chưa?</h2>
 <p><b>Phía Hán — TỐT, đủ nộp.</b> OCR {n_pages} trang, {n_chars:,} ký tự. Trung vị độ tin cậy
-{statistics.median(confs):.3f}. Độ đúng OCR do đồng thuận 3 engine + Qwen arbiter quyết định
+{statistics.median(confs):.3f}. Độ đúng OCR do đồng thuận 2 engine (base + Qwen arbiter) quyết định
 (xem cột conf), không dùng rule từ điển.</p>
 <p><b>Phía Việt + alignment — YẾU, là điểm trừ.</b> Text tiếng Việt lấy OCR từ bản dịch in
 nhiễu nặng (vd "MINH MỆNH EHÍNH VẾU"), nên similarity Hán↔Việt thấp

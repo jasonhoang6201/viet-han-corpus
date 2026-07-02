@@ -97,7 +97,11 @@ def _make_ocr(lang: str):
             # preferred: server models on GPU (best accuracy, GPU is fast enough)
             dict(base, device="gpu",
                  text_detection_model_name="PP-OCRv5_server_det",
-                 text_recognition_model_name="PP-OCRv5_server_rec"),
+                 text_recognition_model_name="PP-OCRv5_server_rec",
+                 # no downscale: keep the full page for detection (long side ~2480px on
+                 # rotated pages). Helps weak columns / cover pages, no regression. See
+                 # notebook Minh_Menh_Han_OCR_Config_Spike.
+                 text_det_limit_side_len=2560, text_det_limit_type="max"),
             dict(base, device="gpu"),      # default models on GPU
             base,                          # let paddle pick the device
             dict(lang=lang),               # minimal

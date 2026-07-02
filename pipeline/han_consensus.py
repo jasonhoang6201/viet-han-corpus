@@ -1,6 +1,6 @@
 """Hán OCR consensus — model-independent voting + re-transliteration.
 
-The heavy model I/O (specialist PaddleOCR rec, Qwen2.5-VL) lives in notebook ②;
+The heavy model I/O (PaddleOCR rec, Qwen2.5-VL) lives in notebook ②;
 this module holds the *pure* logic so it is testable and reusable:
 
   * fold()            — collapse traditional/simplified so engines compare fairly
@@ -11,18 +11,15 @@ this module holds the *pure* logic so it is testable and reusable:
                         re-derive âm Hán-Việt, so the bge aligner sees the fix
   * consensus_metrics()
 
-Method follows notebooks/Minh_Menh_4_Han_Consensus_Pipeline.ipynb (the validated
-ad-hoc run): base = PaddleOCR (step 3), spec = MinhDS fine-tuned PP-OCRv5 rec,
-qwen = Qwen2.5-VL arbiter. In `qwen_arbiter` mode base==qwen keeps base, a
-disagreement trusts qwen and is flagged for review; `spec` is only recorded as a
-backing signal (it is currently weak, see consensus_metrics in [[mmcy-readme-config-drift]]).
+Two engines vote: base = PaddleOCR (step 3), qwen = Qwen2.5-VL arbiter. In
+`qwen_arbiter` mode base==qwen keeps base, a disagreement trusts qwen and is
+flagged for review.
 
 The module is dependency-free (stdlib + optional `opencc`); the notebook loads
 the dictionary and passes it in, so importing this never pulls in paddle/torch.
 """
 from __future__ import annotations
 
-import collections
 import difflib
 
 # --------------------------------------------------------------------------- #
@@ -73,22 +70,19 @@ def map_to_base(base: str, other: str) -> dict[int, str]:
     return mp
 
 
-def vote_column(base: str, spec: str, qwen: str,
+def vote_column(base: str, qwen: str,
                 vote_mode: str = "qwen_arbiter") -> tuple[str, list[dict]]:
     """Vote one column's characters. Returns (consensus_text, review_positions).
 
     qwen_arbiter — base==qwen keeps base; qwen absent keeps base; a disagreement
-                   trusts qwen and records the position for human review. `spec`
-                   is informational only (spec_backs_qwen).
-    majority     — keep a char only when >=2 engines agree on it, else keep base
-                   and flag.
+                   trusts qwen and records the position for human review.
+    majority     — with two engines, keep base unless qwen agrees; any base/qwen
+                   disagreement keeps base and flags it (conservative).
     """
-    smap = map_to_base(base, spec) if spec else {}
     qmap = map_to_base(base, qwen) if qwen else {}
     chars: list[str] = []
     review: list[dict] = []
     for i, bc in enumerate(base):
-        sc = smap.get(i)
         qc = qmap.get(i) if qwen else None
         if vote_mode == "qwen_arbiter":
             if not qc:                              # qwen skipped this column -> keep base
@@ -97,39 +91,32 @@ def vote_column(base: str, spec: str, qwen: str,
                 chars.append(bc)
             else:                                   # disagree -> trust qwen, flag review
                 chars.append(qc)
-                review.append({"pos": i, "base": bc, "spec": sc, "qwen": qc,
-                               "spec_backs_qwen": bool(sc and fold(sc) == fold(qc))})
-        else:                                       # majority
-            cand = {"base": bc, "spec": sc, "qwen": qc}
-            votes = collections.Counter(fold(c) for c in cand.values() if c)
-            top, cnt = votes.most_common(1)[0]
-            if cnt >= 2:
-                chars.append(next(c for c in cand.values() if c and fold(c) == top))
-            else:
-                chars.append(bc)
-                review.append({"pos": i, "base": bc, "spec": sc, "qwen": qc})
+                review.append({"pos": i, "base": bc, "qwen": qc})
+        else:                                       # majority (conservative, keep base)
+            chars.append(bc)
+            if not (qc and fold(qc) == fold(bc)):
+                review.append({"pos": i, "base": bc, "qwen": qc})
     return "".join(chars), review
 
 
 def build_consensus(records: list[dict],
                     vote_mode: str = "qwen_arbiter") -> tuple[list[dict], list[dict]]:
-    """records: [{id, page, conf, base, spec, qwen}]. Returns (consensus, review).
+    """records: [{id, page, conf, base, qwen}]. Returns (consensus, review).
 
-    consensus row: {id, page, conf, consensus, base, spec, qwen, n_review}
-    review row   : {id, page, base, spec, qwen, positions:[...]} (only flagged cols)
+    consensus row: {id, page, conf, consensus, base, qwen, n_review}
+    review row   : {id, page, base, qwen, positions:[...]} (only flagged cols)
     """
     consensus, review = [], []
     for r in records:
         base = r.get("base") or ""
-        spec = r.get("spec") or ""
         qwen = r.get("qwen") or ""
-        text, col_review = vote_column(base, spec, qwen, vote_mode)
+        text, col_review = vote_column(base, qwen, vote_mode)
         consensus.append({"id": r["id"], "page": r.get("page"), "conf": r.get("conf"),
-                          "consensus": text, "base": base, "spec": spec, "qwen": qwen,
+                          "consensus": text, "base": base, "qwen": qwen,
                           "n_review": len(col_review)})
         if col_review:
             review.append({"id": r["id"], "page": r.get("page"),
-                           "base": base, "spec": spec, "qwen": qwen, "positions": col_review})
+                           "base": base, "qwen": qwen, "positions": col_review})
     return consensus, review
 
 
@@ -150,7 +137,7 @@ def apply_consensus(rows: list[dict], corrected: dict[str, str],
     """
     out = []
     for row in rows:
-        new = {k: v for k, v in row.items() if not k.startswith("_")}  # drop _spec/_qwen scratch
+        new = {k: v for k, v in row.items() if not k.startswith("_")}  # drop _qwen scratch
         fixed = corrected.get(row["id"])
         if fixed is not None and fixed != row.get("sinonom"):
             new["sinonom"] = fixed
