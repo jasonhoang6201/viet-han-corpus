@@ -112,8 +112,8 @@ def run(vol: str, path=None) -> dict:
     write_jsonl(path, kept)
 
     # VI review queue — built here (the last stage to touch vi_sentences.jsonl) so
-    # it reflects the FINAL corpus. Moved out of step 4 so the Vietnamese side can
-    # be hand-reviewed right after P1, before any Hán OCR / alignment runs.
+    # it reflects the FINAL corpus, and here rather than step 4 so the Vietnamese
+    # side can be hand-reviewed right after P1, before any Hán OCR / alignment runs.
     write_jsonl(out_dir / "vi_review.jsonl", build_vi_review(kept, vocab, config.REVIEW))
     write_jsonl(out_dir / "oov_vocab.jsonl", build_oov_vocab(kept, vocab))
     report = {

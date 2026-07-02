@@ -159,11 +159,10 @@ VIETNAMESE = dict(
 PREPROCESS = dict(
     grayscale=True,
     deskew=True,             # straighten slightly rotated scans
-    denoise=False,           # was True — winning spike config was raw (no denoise)
-    binarize=None,           # was "adaptive" — adaptiveThreshold wiped thin woodblock
-                             # strokes and dropped a whole column on p149. Raw recovers
-                             # it AND scores higher (0.827 vs 0.788). See notebook
-                             # Minh_Menh_Han_OCR_Config_Spike. "adaptive" | "otsu" | None
+    denoise=False,           # raw scans recognise better than denoised ones
+    binarize=None,           # adaptiveThreshold wipes thin woodblock strokes and can
+                             # drop whole columns; raw also scores higher
+                             # (0.827 vs 0.788). "adaptive" | "otsu" | None
     upscale_min_height=0,    # upscale page if shorter than this (0 = off)
 )
 
@@ -212,11 +211,12 @@ SINONOM = dict(
 # --------------------------------------------------------------------------- #
 ALIGN = dict(
     # DP alignment search: allowed merge patterns (han:viet).
-    # The Hán side is segmented per COLUMN (unpunctuated woodblock, ~12 chars),
-    # while the VI side is full sentences (~27 words) from underthesea — so a
-    # single VI sentence usually spans SEVERAL Hán columns. Allow up to 5 Hán
-    # columns ↔ 1 VI sentence (and 1↔2) instead of forcing a 2:2 ceiling.
-    merge_modes=((1, 1), (1, 2), (2, 1), (3, 1), (4, 1), (5, 1),
+    # Step 3c re-segments the Hán side into REAL sentences (auto-punctuation), so
+    # the two sides are near 1:1 — per-vol sentence ratios run han:vi ≈ 0.8 (vol3,
+    # VI splits finer -> needs 1:2/1:3) to ≈ 1.4 (vol5 -> needs 2:1/3:1). The old
+    # (4,1)/(5,1) modes were for the column-as-sentence era (~3x over-segmented);
+    # keeping them now only widens the search space for wrong merges.
+    merge_modes=((1, 1), (1, 2), (1, 3), (2, 1), (3, 1),
                  (1, 0), (0, 1), (2, 2)),
     sim_threshold=0.30,        # below this, treat as gap rather than match
     # Lexical cross-check (a second opinion on each aligned pair). Vietnamese keeps
@@ -247,6 +247,30 @@ HAN_SEGMENT = dict(
     max_len=460,               # chars per model call (< model 512 limit); pages are ~180
     overlap=32,                # char overlap when a page stream exceeds max_len
     sent_marks="。！？；",       # marks that end a sentence (； closes a full clause here)
+    # -- cleanup passes on the corrected boxes, BEFORE re-segmentation --
+    # 版心 filter: every leaf's title strip (明命政要 + section + 卷/leaf number)
+    # sometimes gets detected as a normal column; its garbled OCR lands INSIDE
+    # cross-page sentences when the chapter stream is concatenated. Audit vol1-6:
+    # 24-128 such boxes/vol, most conf >= 0.5 (invisible to the review queue). A
+    # box is dropped only if short + in an edge strip + mostly 版心-vocabulary
+    # chars (han_segment.BANXIN_CHARS); drops are logged to banxin_dropped.jsonl.
+    drop_banxin=True,
+    banxin_x_frac=0.15,        # left strip: box x1 <= this fraction of page width
+    banxin_right_frac=0.97,    # hard right strip (cut-off title at the binding): x1 >=
+                               # this. Keep narrow: the rightmost column is the FIRST one
+                               # read on a page — at 0.90 it swallowed real content
+                               # (section heading 法祖第二 conf .99, tails conf 1.0).
+    banxin_max_chars=12,       # 版心 line is short; content columns run ~18-20 chars
+    banxin_min_ratio=0.6,      # min fraction of chars from BANXIN_CHARS
+    banxin_soft_frac=0.90,     # soft right zone: fold debris reaches in this far, but so
+                               # do real first columns — drop only when charset AND low
+                               # conf agree (see han_segment.drop_banxin docstring).
+    banxin_min_conf=0.75,      # fold debris is blurred: vol1-6 garbage runs conf .07-.67
+                               # while real edge content runs .83-1.0.
+    # s2t: the recogniser leaks simplified variants (~2.5% of chars: 赏数则员学…)
+    # into this traditional woodblock corpus; map them back before the punctuator /
+    # embeddings / Excel (unambiguous pairs only — see han_segment.S2T).
+    s2t=True,
 )
 
 # --------------------------------------------------------------------------- #

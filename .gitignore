@@ -1,2 +1,5 @@
 output*/
 ocr_zips/*
+__pycache__/
+*.pyc
+.DS_Store

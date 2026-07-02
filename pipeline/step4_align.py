@@ -30,7 +30,7 @@ log = get_logger("step4")
 
 
 # --------------------------------------------------------------------------- #
-# The VI/Hán review queues moved to pipeline/reviews.py: the VI lane runs in
+# The VI/Hán review queues live in pipeline/reviews.py: the VI lane runs in
 # step 2 (P1) and the Hán lane in step 3 (P2, after the Qwen consensus). This
 # module is alignment + Excel only.
 # --------------------------------------------------------------------------- #

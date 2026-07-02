@@ -98,10 +98,13 @@ def _make_ocr(lang: str):
             dict(base, device="gpu",
                  text_detection_model_name="PP-OCRv5_server_det",
                  text_recognition_model_name="PP-OCRv5_server_rec",
-                 # no downscale: keep the full page for detection (long side ~2480px on
-                 # rotated pages). Helps weak columns / cover pages, no regression. See
-                 # notebook Minh_Menh_Han_OCR_Config_Spike.
-                 text_det_limit_side_len=2560, text_det_limit_type="max"),
+                 # no downscale: keep the full page for detection (long side ~2480px
+                 # on rotated pages) — helps weak columns / cover pages.
+                 text_det_limit_side_len=2560, text_det_limit_type="max",
+                 # the 0.6 default silently drops whole faint columns next to 雙行
+                 # zones; 0.4 recovers them with control-page confidence unchanged.
+                 # Looser det thresh/unclip recover no more and cost ~.035 mean conf.
+                 text_det_box_thresh=0.4),
             dict(base, device="gpu"),      # default models on GPU
             base,                          # let paddle pick the device
             dict(lang=lang),               # minimal
@@ -426,7 +429,7 @@ def run(vol: str, chapter: int = 1, limit: int | None = None) -> tuple[Path, Pat
 def review(vol: str) -> Path:
     """Hán review queue — low-confidence boxes.
 
-    Moved out of step 4 so P3 is alignment-only. Run AFTER the Qwen consensus
+    Lives here (not step 4) so P3 stays alignment-only. Run AFTER the Qwen consensus
     (step3b) has rewritten han_boxes.jsonl, so the confidences reflect the
     corrected chars. OCR correctness is judged by the consensus + Qwen arbiter,
     so the queue only surfaces low-confidence boxes. Reads han_boxes.jsonl;
